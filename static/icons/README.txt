@@ -1,0 +1,1 @@
+PNG placeholder — replace with real icon (see docs/PLAN.md Phase 4)
