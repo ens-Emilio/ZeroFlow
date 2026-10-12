@@ -1,0 +1,77 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "ZeroFlow",
+  "version": "0.1.0",
+  "identifier": "com.github.keekyslusus.zerowflow",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "overlay",
+        "title": "ZeroFlow Overlay",
+        "width": 800,
+        "height": 600,
+        "decorations": false,
+        "transparent": true,
+        "resizable": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false,
+        "focus": false,
+        "fullscreen": false
+      },
+      {
+        "label": "settings",
+        "title": "ZeroFlow Settings",
+        "width": 720,
+        "height": 560,
+        "decorations": true,
+        "transparent": false,
+        "resizable": false,
+        "center": true,
+        "visible": false
+      },
+      {
+        "label": "music",
+        "title": "ZeroFlow Music",
+        "width": 480,
+        "height": 520,
+        "decorations": true,
+        "transparent": false,
+        "resizable": false,
+        "center": true,
+        "visible": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["appimage", "deb"],
+    "icon": ["static/icons/icon.png", "static/icons/icon.icns", "static/icons/icon.ico"],
+    "resources": ["static/sounds/*"],
+    "linux": {
+      "desktopEntry": {
+        "StartupNotify": true,
+        "StartupWMClass": "ZeroFlow"
+      }
+    }
+  },
+  "plugins": {
+    "global-shortcut": {
+      "shortcuts": {
+        "ctrl+alt+space": "toggle-overlay"
+      }
+    },
+    "single-instance": {
+      "entryPoint": "single-instance"
+    }
+  }
+}

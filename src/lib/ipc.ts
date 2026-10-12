@@ -1,0 +1,65 @@
+// Typed bridge to the Rust backend. One file so the surface stays visible.
+
+import { invoke } from "@tauri-apps/api/core";
+import { listen, emit } from "@tauri-apps/api/event";
+
+export interface SelectionBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface Point {
+  x: number;
+  y: number;
+}
+
+export interface SearchResult {
+  provider: "tracemoe" | "yandex" | "lens" | "pinterest";
+  url?: string;
+  payload?: unknown;
+}
+
+export const backend = {
+  // Settings
+  getSettings: () => invoke<Record<string, unknown>>("get_settings"),
+  setSettings: (patch: Record<string, unknown>) => invoke<void>("set_settings", { patch }),
+
+  // Overlay lifecycle
+  startOverlay: () => invoke<void>("start_overlay"),
+  hideOverlay: () => invoke<void>("hide_overlay"),
+
+  // Capture: given lasso bounds (CSS px) and the polygon, crop the latest
+  // screenshot to the selection and return it as a JPEG data URL.
+  cropSelection: (bounds: SelectionBounds, polygon: Point[]) =>
+    invoke<string>("crop_selection", { bounds, polygon }),
+
+  // Providers
+  searchTraceMoe: (jpegBase64: string) => invoke<unknown>("search_tracemoe", { jpegBase64 }),
+  searchYandex: (jpegBase64: string) => invoke<unknown>("search_yandex", { jpegBase64 }),
+  openLens: (jpegBase64: string) => invoke<unknown>("open_lens", { jpegBase64 }),
+
+  // Utilities
+  copyImage: (jpegBase64: string) => invoke<boolean>("copy_image", { jpegBase64 }),
+  saveImage: (jpegBase64: string) => invoke<string | null>("save_image", { jpegBase64 }),
+  scanQr: (pngBase64: string) => invoke<string | null>("scan_qr", { pngBase64 }),
+  ocr: (pngBase64: string, langTag: string) => invoke<unknown>("ocr", { pngBase64, langTag }),
+
+  // Music
+  startMusicRecognition: () => invoke<void>("start_music_recognition"),
+  stopMusicRecognition: () => invoke<void>("stop_music_recognition"),
+
+  // Translation
+  translateSelection: (jpegBase64: string, targetLang: string) =>
+    invoke<unknown>("translate_selection", { jpegBase64, targetLang }),
+};
+
+export const events = {
+  onHotkey: (handler: () => void) => listen("zeroflow://hotkey", handler),
+  onMusicResult: (handler: (payload: unknown) => void) => listen("zeroflow://music-result", handler),
+  onToast: (handler: (payload: { message: string; isError?: boolean }) => void) =>
+    listen("zeroflow://toast", handler),
+};
+
+export { emit };
