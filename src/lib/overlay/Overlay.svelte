@@ -10,13 +10,16 @@
   let isVisible = $state(false);
 
   onMount(() => {
+    void backend.debugLog("Overlay mounted");
     void (async () => {
     // The overlay window is born hidden; WebKitGTK may load this page only
     // on first show(), after toggle-overlay was already emitted. Recover:
     // if the window is visible now, adopt the pending frame.
     try {
       const win = getCurrentWindow();
-      if (await win.isVisible()) {
+      const visible = await win.isVisible();
+      void backend.debugLog(`recovery: visible=${visible}`);
+      if (visible) {
         const pending = await invoke<string | null>("get_pending_frame");
         if (pending) {
           isVisible = true;
@@ -34,6 +37,7 @@
     // Backend decides the state: non-empty payload = show with this frame,
     // empty = hide. No blind toggling (window state and UI state drifted).
     const unlistenToggle = events.onOverlayToggle((dataUrl) => {
+      void backend.debugLog(`toggle-overlay len=${dataUrl?.length ?? 0}`);
       isVisible = !!dataUrl;
       if (dataUrl) {
         overlaySession.screenshotDataUrl = dataUrl;
@@ -63,13 +67,17 @@
     path: { x: number; y: number }[]
   ) {
     overlaySession.selectionBounds = bounds;
+    let jpeg: string;
     try {
-      const jpeg = await backend.cropSelection(path);
-      showToast(`Captured (${jpeg.length} bytes b64) — providers arrive in Phase 1`);
-      void backend.closeOverlay();
+      jpeg = await backend.cropSelection(path);
     } catch (e) {
       showToast(`Crop failed: ${e}`, true);
+      return;
     }
+    // Search runs in the Rust process (detached task): this window is about
+    // to be destroyed and must not carry the search.
+    void backend.submitSelection(jpeg).catch((e) => console.error("[zf] submit failed", e));
+    void backend.closeOverlay();
   }
 
   function onCancel() {

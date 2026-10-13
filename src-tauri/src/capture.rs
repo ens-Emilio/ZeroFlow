@@ -77,12 +77,29 @@ pub async fn crop_selection(polygon: Vec<Point>) -> Result<String, String> {
     let guard = LAST_FRAME.lock().unwrap();
     let frame = guard.as_ref().ok_or("no frame grabbed yet")?;
 
+    // Bounding-box crop of the lasso, like the original CircleFlow: the
+    // selection is the rect the lasso encloses, not the literal stroke path.
+    let xs: Vec<f64> = polygon.iter().map(|p| p.x).collect();
+    let ys: Vec<f64> = polygon.iter().map(|p| p.y).collect();
+    let (min_x, max_x) = (
+        xs.iter().cloned().fold(f64::INFINITY, f64::min).floor().max(0.0) as u32,
+        xs.iter().cloned().fold(f64::NEG_INFINITY, f64::max).ceil() as u32,
+    );
+    let (min_y, max_y) = (
+        ys.iter().cloned().fold(f64::INFINITY, f64::min).floor().max(0.0) as u32,
+        ys.iter().cloned().fold(f64::NEG_INFINITY, f64::max).ceil() as u32,
+    );
+
     let src = frame.to_rgba8();
     let (w, h) = src.dimensions();
-    let mut out = image::RgbaImage::new(w, h);
-    for (x, y, pixel) in src.enumerate_pixels() {
-        if point_in_polygon(x as f64 + 0.5, y as f64 + 0.5, &polygon) {
-            out.put_pixel(x, y, *pixel);
+    let (max_x, max_y) = (max_x.min(w), max_y.min(h));
+    if max_x <= min_x || max_y <= min_y {
+        return Err("empty selection".into());
+    }
+    let mut out = image::RgbaImage::new(max_x - min_x, max_y - min_y);
+    for y in min_y..max_y {
+        for x in min_x..max_x {
+            out.put_pixel(x - min_x, y - min_y, *src.get_pixel(x, y));
         }
     }
 
@@ -91,6 +108,10 @@ pub async fn crop_selection(polygon: Vec<Point>) -> Result<String, String> {
         .to_rgb8()
         .write_to(&mut std::io::Cursor::new(&mut jpeg), image::ImageFormat::Jpeg)
         .map_err(|e| format!("encode jpeg: {e}"))?;
+    eprintln!(
+        "zeroflow: crop_selection frame {w}x{h}, bbox {min_x},{min_y}..{max_x},{max_y}"
+    );
+    let _ = std::fs::write("/tmp/zeroflow-crop-debug.jpg", &jpeg);
 
     Ok(base64::engine::general_purpose::STANDARD.encode(&jpeg))
 }

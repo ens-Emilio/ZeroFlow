@@ -71,6 +71,12 @@ pub fn close_overlay(app: tauri::AppHandle) {
     }
 }
 
+/// Frontend telemetry: console.log does not reach stdout on WebKitGTK+KWin.
+#[tauri::command]
+pub fn debug_log(message: String) {
+    eprintln!("[zf-fe] {message}");
+}
+
 pub async fn show_overlay(window: &tauri::Window) {
     if let Some(overlay) = window.get_webview_window("overlay") {
         // Wayland: only show(); window is maximized via config.

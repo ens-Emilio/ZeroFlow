@@ -2,6 +2,7 @@
   // Lasso overlay (Canvas 2D). Pointer drag -> sampled path -> bounds on release.
   import { onMount } from "svelte";
   import { LassoPath, type Point } from "./lasso.ts";
+  import { backend } from "../ipc.ts";
 
   let {
     onComplete,
@@ -77,6 +78,7 @@
 
   function onPointerDown(e: PointerEvent) {
     if (e.button !== 0) return;
+    void backend.debugLog(`lasso down at ${e.clientX},${e.clientY}`);
     dragging = true;
     path = new LassoPath(sampleDistancePx);
     path.add({ x: e.clientX, y: e.clientY });
@@ -94,6 +96,7 @@
     if (!dragging) return;
     dragging = false;
     const bounds = path.bounds();
+    void backend.debugLog(`lasso up, pts=${path.points.length}, bounds=${JSON.stringify(bounds)}`);
     if (bounds && Math.hypot(bounds.width, bounds.height) >= minDiagonalPx) {
       onComplete(bounds, [...path.points]);
     } else {

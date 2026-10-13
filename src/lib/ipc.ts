@@ -29,6 +29,7 @@ export const backend = {
   // Overlay lifecycle
   startOverlay: () => invoke<void>("start_overlay"),
   closeOverlay: () => invoke<void>("close_overlay"),
+  debugLog: (message: string) => invoke<void>("debug_log", { message }),
 
   // Capture: given the lasso polygon (CSS px), crop the cached screenshot
   // and return it as JPEG base64 (no data: prefix).
@@ -36,6 +37,7 @@ export const backend = {
 
   // Providers
   searchTraceMoe: (jpegBase64: string) => invoke<unknown>("search_tracemoe", { jpegBase64 }),
+  submitSelection: (jpegBase64: string) => invoke<void>("submit_selection", { jpegBase64 }),
   searchYandex: (jpegBase64: string) => invoke<unknown>("search_yandex", { jpegBase64 }),
   openLens: (jpegBase64: string) => invoke<unknown>("open_lens", { jpegBase64 }),
 

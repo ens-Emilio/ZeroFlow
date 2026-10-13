@@ -105,6 +105,13 @@ pub fn run() {
                         .build();
                         if let Ok(w) = &overlay {
                             let _ = w.set_focus();
+                            // Re-assert focus after the first frame: WebKitGTK
+                            // can lose input focus during initial mapping on KWin.
+                            let w2 = w.clone();
+                            std::thread::spawn(move || {
+                                std::thread::sleep(std::time::Duration::from_millis(150));
+                                let _ = w2.set_focus();
+                            });
                             let _ = handle.emit("toggle-overlay", url);
                         }
                         if let Err(e) = overlay {
@@ -121,6 +128,7 @@ pub fn run() {
             hotkey::toggle_overlay,
             hotkey::start_overlay,
             hotkey::close_overlay,
+            hotkey::debug_log,
             hotkey::copy_image,
             hotkey::save_image,
             hotkey::open_settings,
@@ -130,6 +138,7 @@ pub fn run() {
             capture::get_pending_frame,
             capture::crop_selection,
             providers::search_tracemoe,
+            providers::submit_selection,
             providers::search_yandex,
             providers::search_pinterest,
             providers::open_lens,
