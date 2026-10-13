@@ -56,6 +56,13 @@ pub fn run() {
             get_settings,
             set_settings,
             hotkey::toggle_overlay,
+            hotkey::start_overlay,
+            hotkey::hide_overlay,
+            hotkey::copy_image,
+            hotkey::save_image,
+            hotkey::open_settings,
+            hotkey::open_music,
+            hotkey::quit_app,
             capture::start_capture_session,
             capture::grab_frame,
             capture::crop_selection,
@@ -69,8 +76,6 @@ pub fn run() {
             shazam::stop_music_recognition,
             translate::translate_selection,
             tray::show_toast,
-            tray::open_settings,
-            tray::open_music,
             tray::quit_app,
         ])
         .run(tauri::generate_context!())

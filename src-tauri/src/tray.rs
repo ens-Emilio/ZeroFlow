@@ -1,7 +1,7 @@
 // Tray + notifications. Uses tray-icon (StatusNotifierItem) and notify-rust.
+// The tray itself is built in main (Phase 1); for now only the toast command lives here.
 
 use notify_rust::Notification;
-use tauri::{Manager, Window};
 
 #[tauri::command]
 pub fn show_toast(message: String, is_error: bool) -> Result<(), String> {
@@ -13,25 +13,4 @@ pub fn show_toast(message: String, is_error: bool) -> Result<(), String> {
         return Err(e.to_string());
     }
     Ok(())
-}
-
-#[tauri::command]
-pub fn open_settings(window: Window) {
-    if let Ok(settings) = window.get_window("settings") {
-        let _ = settings.show();
-        let _ = settings.set_focus();
-    }
-}
-
-#[tauri::command]
-pub fn open_music(window: Window) {
-    if let Ok(music) = window.get_window("music") {
-        let _ = music.show();
-        let _ = music.set_focus();
-    }
-}
-
-#[tauri::command]
-pub fn quit_app(app: tauri::AppHandle) {
-    app.exit(0);
 }
