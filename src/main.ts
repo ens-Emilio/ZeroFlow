@@ -1,6 +1,7 @@
 import { mount } from "svelte";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import App from "./App.svelte";
+import Overlay from "./lib/overlay/Overlay.svelte";
 
 const label = getCurrentWindow().label;
 
@@ -12,5 +13,5 @@ if (label === "settings") {
 } else if (label === "music") {
   mount(App, { target, props: { mode: "music" } });
 } else {
-  mount(App, { target, props: { mode: "overlay" } });
+  mount(Overlay, { target });
 }

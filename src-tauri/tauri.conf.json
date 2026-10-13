@@ -12,26 +12,11 @@
   "app": {
     "windows": [
       {
-        "label": "overlay",
-        "title": "ZeroFlow Overlay",
-        "width": 800,
-        "height": 600,
-        "decorations": false,
-        "transparent": true,
-        "resizable": false,
-        "alwaysOnTop": true,
-        "skipTaskbar": true,
-        "visible": false,
-        "focus": false,
-        "fullscreen": false
-      },
-      {
         "label": "settings",
         "title": "ZeroFlow Settings",
         "width": 720,
         "height": 560,
         "decorations": true,
-        "transparent": false,
         "resizable": false,
         "center": true,
         "visible": false
@@ -42,7 +27,6 @@
         "width": 480,
         "height": 520,
         "decorations": true,
-        "transparent": false,
         "resizable": false,
         "center": true,
         "visible": false
@@ -65,14 +49,5 @@
       "../static/sounds/*"
     ]
   },
-  "plugins": {
-    "global-shortcut": {
-      "shortcuts": {
-        "ctrl+alt+space": "toggle-overlay"
-      }
-    },
-    "single-instance": {
-      "entryPoint": "single-instance"
-    }
-  }
+  "plugins": {}
 }

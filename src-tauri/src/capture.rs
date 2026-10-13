@@ -20,6 +20,10 @@ static LAST_FRAME: Mutex<Option<DynamicImage>> = Mutex::new(None);
 /// The frame is also cached in memory for crop_selection.
 #[tauri::command]
 pub async fn grab_frame(interactive: bool) -> Result<String, String> {
+    grab_frame_inner(interactive).await
+}
+
+pub async fn grab_frame_inner(interactive: bool) -> Result<String, String> {
     let proxy = ashpd::desktop::screenshot::ScreenshotProxy::new()
         .await
         .map_err(|e| format!("portal connect failed: {e}"))?;
@@ -45,6 +49,25 @@ pub async fn grab_frame(interactive: bool) -> Result<String, String> {
 
     let b64 = base64::engine::general_purpose::STANDARD.encode(&png);
     Ok(format!("data:image/png;base64,{b64}"))
+}
+
+/// Returns the last captured frame as a PNG data URL, if any.
+/// Used by the frontend on mount: the window may be shown before the page
+/// finished loading and missed the toggle-overlay event.
+#[tauri::command]
+pub async fn get_pending_frame() -> Result<Option<String>, String> {
+    let guard = LAST_FRAME.lock().unwrap();
+    match guard.as_ref() {
+        Some(img) => {
+            let mut png = Vec::new();
+            img.to_rgba8()
+                .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+                .map_err(|e| format!("encode png: {e}"))?;
+            let b64 = base64::engine::general_purpose::STANDARD.encode(&png);
+            Ok(Some(format!("data:image/png;base64,{b64}")))
+        }
+        None => Ok(None),
+    }
 }
 
 /// Crops the cached frame to the lasso polygon (keeps pixels inside the polygon),

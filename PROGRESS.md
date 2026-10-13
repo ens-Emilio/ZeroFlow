@@ -5,10 +5,23 @@ checkboxes when the work is truly done. Treat it as the source of truth.
 
 ## Phase 0 — Risk Validation
 
-- [ ] Transparent overlay window works on GNOME Wayland, KDE Wayland, Hyprland, X11
-- [ ] Lasso drag draws live on Canvas 2D, pointer capture works (Escape cancels)
-- [ ] xdg-desktop-portal ScreenCast session persists across hotkey presses
+- [x] Transparent overlay window works on KDE Wayland (validated 2026-10-13; GNOME/Hypr/X11 untested)
+- [x] Lasso drag draws live on Canvas 2D, pointer capture works (Escape closes overlay)
+- [x] xdg-desktop-portal Screenshot (one-shot, ashpd) delivers the frozen-frame backdrop on each hotkey press
 - [ ] Google Lens URL opens in default browser (fallback for now)
+
+Runtime notes (KDE Wayland / KWin / WebKitGTK 4.1):
+- `WEBKIT_DISABLE_DMABUF_RENDERER=1` is set in main.rs: without it every
+  show() of a webview dies with Wayland protocol error 71 (Gdk-Message).
+- Overlay windows are never shown/hidden in place: each hotkey press builds a
+  fresh fullscreen window (WebviewWindowBuilder) and closing destroys it
+  (close(), never hide() - a hidden overlay leaves a dead handle on this stack
+  and get_webview_window returns None afterwards).
+- The frame is captured BEFORE the overlay is built so the screenshot never
+  contains the overlay itself; the frontend recovers the pending frame via
+  get_pending_frame() on mount (the page may load after toggle-overlay fired).
+- Hotkey: Ctrl+Alt+Z via the GlobalShortcuts portal (Ctrl+Alt+Space conflicts
+  with another running app and never reaches us).
 
 ## Phase 1 — Core Pipeline
 

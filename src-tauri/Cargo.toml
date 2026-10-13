@@ -7,7 +7,7 @@ description = "Circle to Search for Linux — Tauri + Svelte port of CircleFlow"
 repository = "https://github.com/ens-Emilio/ZeroFlow"
 
 [dependencies]
-tauri = "2"
+tauri = { version = "2", features = [] }
 tauri-plugin-shell = "2"
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-notification = "2"
@@ -30,4 +30,4 @@ serde_json = "1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 
 [build-dependencies]
-tauri-build = { version = "2" }
+tauri-build = { version = "2", features = [] }

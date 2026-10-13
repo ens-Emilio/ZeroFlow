@@ -1,1 +1,1 @@
-{}
+{"default":{"identifier":"default","description":"All ZeroFlow windows: core IPC, global-shortcut, notification","local":true,"windows":["overlay","settings","music"],"permissions":["core:default","global-shortcut:allow-is-registered","global-shortcut:allow-register","global-shortcut:allow-unregister","notification:default"]}}

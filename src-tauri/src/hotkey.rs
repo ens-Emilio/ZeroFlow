@@ -1,8 +1,12 @@
 // Minimal hotkey: X11 via x11rb; Wayland via global-shortcuts-portal (ashpd).
 // Tauri ships a global-shortcut plugin that does exactly this (plugin chooses backend).
 // We'll just wire the command; the plugin provides the registration.
+// In KDE Wayland, KGlobalAccel is used instead; the plugin may fall back silently.
+// shortcut: plugin registration via setup() in lib.rs; fallback native KGlobalAccel later.
 
-use tauri::Manager;
+use tauri::{Emitter, Manager};
+
+use crate::capture;
 
 /// Copies a JPEG (base64) to the system clipboard via the xdg clipboard (wl-copy / xclip fallback).
 #[tauri::command]
@@ -43,33 +47,38 @@ pub fn quit_app(app: tauri::AppHandle) {
 
 // Shows/hides the overlay window. Shared by hotkey toggle and frontend Esc handling.
 #[tauri::command]
-pub fn toggle_overlay(window: tauri::Window) {
+pub async fn toggle_overlay(window: tauri::Window) {
     if let Some(overlay) = window.get_webview_window("overlay") {
         if overlay.is_visible().unwrap_or(false) {
             let _ = overlay.hide();
         } else {
-            show_overlay(&window);
+            show_overlay(&window).await;
         }
     }
 }
 
 #[tauri::command]
-pub fn start_overlay(window: tauri::Window) {
-    show_overlay(&window);
+pub async fn start_overlay(window: tauri::Window) {
+    show_overlay(&window).await;
 }
 
+/// Destroys the overlay window. On this stack hide() leaves a dead handle,
+/// so closing is the only reliable way out.
 #[tauri::command]
-pub fn hide_overlay(window: tauri::Window) {
-    if let Some(overlay) = window.get_webview_window("overlay") {
-        let _ = overlay.hide();
+pub fn close_overlay(app: tauri::AppHandle) {
+    if let Some(overlay) = app.get_webview_window("overlay") {
+        let _ = overlay.close();
     }
 }
 
-fn show_overlay(window: &tauri::Window) {
+pub async fn show_overlay(window: &tauri::Window) {
     if let Some(overlay) = window.get_webview_window("overlay") {
-        let _ = overlay
-            .show()
-            .and_then(|_| overlay.set_always_on_top(true))
-            .and_then(|_| overlay.set_focus());
+        // Wayland: only show(); window is maximized via config.
+        let _ = overlay.show();
+        // Grab screenshot and emit to frontend for backdrop.
+        // shortcut: interactive=false skips the picker where possible.
+        if let Ok(data_url) = capture::grab_frame(false).await {
+            let _ = overlay.emit("overlay-frame", data_url);
+        }
     }
 }

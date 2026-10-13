@@ -1,7 +1,7 @@
 // Minimal runes stores. Svelte 5 uses $state/$derived directly in components;
 // this file holds app-level singletons only.
 
-import type { Point } from "./overlay/lasso.ts";
+import type { Point } from "../overlay/lasso.ts";
 
 export interface Settings {
   hotkey: string;

@@ -1,47 +1,104 @@
 <script lang="ts">
-  // Overlay window shell: screenshot backdrop + lasso canvas + toolbar.
-  // Phase 0: validates transparent/clickable overlay + lasso drawing.
   import LassoOverlay from "$lib/overlay/LassoOverlay.svelte";
-  import { overlaySession, toast, showToast } from "$lib/stores/index.ts";
+  import { overlaySession, toast, showToast } from "$lib/stores/index.svelte";
   import { backend, events } from "$lib/ipc.ts";
+  import { invoke } from "@tauri-apps/api/core";
+  import { getCurrentWindow } from "@tauri-apps/api/window";
   import { onMount } from "svelte";
 
-  let backdrop: HTMLImageElement | undefined = $state();
+  // Overlay is born visible (maximized) by config; we hide it with CSS.
+  let isVisible = $state(false);
 
-  onMount(async () => {
-    const unlisten = await events.onHotkey(async () => {
-      // Hotkey pressed while overlay is open: close it.
-      await backend.hideOverlay();
+  onMount(() => {
+    void (async () => {
+    // The overlay window is born hidden; WebKitGTK may load this page only
+    // on first show(), after toggle-overlay was already emitted. Recover:
+    // if the window is visible now, adopt the pending frame.
+    try {
+      const win = getCurrentWindow();
+      if (await win.isVisible()) {
+        const pending = await invoke<string | null>("get_pending_frame");
+        if (pending) {
+          isVisible = true;
+          overlaySession.screenshotDataUrl = pending;
+        }
+      }
+    } catch (e) {
+      console.error("[zf] recovery failed", e);
+    }
+    })();
+
+
+    // Backend shows/hides the real window; we just track state and grab the
+    // frame for the backdrop each time the overlay is opened.
+    // Backend decides the state: non-empty payload = show with this frame,
+    // empty = hide. No blind toggling (window state and UI state drifted).
+    const unlistenToggle = events.onOverlayToggle((dataUrl) => {
+      isVisible = !!dataUrl;
+      if (dataUrl) {
+        overlaySession.screenshotDataUrl = dataUrl;
+      }
     });
-    return unlisten;
+
+    // Legacy events (kept for compatibility with crop etc.)
+    const unlistenFrame = events.onOverlayFrame((dataUrl) => {
+      overlaySession.screenshotDataUrl = dataUrl;
+    });
+    const unlistenHotkey = events.onHotkey(async () => {
+      void backend.closeOverlay();
+    });
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") void backend.closeOverlay();
+    });
+
+    return () => {
+      void unlistenToggle.then((f) => f());
+      void unlistenFrame.then((f) => f());
+      void unlistenHotkey.then((f) => f());
+    };
   });
 
   async function onComplete(
     bounds: { x: number; y: number; width: number; height: number },
-    _path: { x: number; y: number }[]
+    path: { x: number; y: number }[]
   ) {
     overlaySession.selectionBounds = bounds;
-    // Phase 0: stub — grab frame + crop is not implemented on the Rust side yet.
-    showToast("Selection captured — providers arrive in Phase 1");
+    try {
+      const jpeg = await backend.cropSelection(path);
+      showToast(`Captured (${jpeg.length} bytes b64) — providers arrive in Phase 1`);
+      void backend.closeOverlay();
+    } catch (e) {
+      showToast(`Crop failed: ${e}`, true);
+    }
   }
 
   function onCancel() {
-    showToast("Selection cancelled");
-    void backend.hideOverlay();
+    void backend.closeOverlay();
   }
 </script>
 
-{#if overlaySession.screenshotDataUrl}
-  <img class="backdrop" src={overlaySession.screenshotDataUrl} alt="" bind:this={backdrop} />
+{#if isVisible}
+  <div class="overlay-container">
+    {#if overlaySession.screenshotDataUrl}
+      <img class="backdrop" src={overlaySession.screenshotDataUrl} alt="" />
+    {/if}
+    <div class="dim"></div>
+    <LassoOverlay {onComplete} {onCancel} />
+  </div>
 {/if}
-
-<LassoOverlay {onComplete} {onCancel} />
 
 {#if toast.visible}
   <div class="toast" class:error={toast.isError}>{toast.message}</div>
 {/if}
 
 <style>
+  .overlay-container {
+    position: fixed;
+    inset: 0;
+    /* Dim over the frozen frame so the capture mode is visibly active. */
+    background: rgba(20, 20, 20, 0.45);
+    cursor: crosshair;
+  }
   .backdrop {
     position: fixed;
     inset: 0;
@@ -49,6 +106,13 @@
     height: 100%;
     object-fit: cover;
     user-select: none;
+    pointer-events: none;
+  }
+  /* Dim layer sits above the screenshot so capture mode is visibly active. */
+  .dim {
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 20, 20, 0.45);
     pointer-events: none;
   }
   .toast {

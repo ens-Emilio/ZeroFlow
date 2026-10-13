@@ -28,12 +28,11 @@ export const backend = {
 
   // Overlay lifecycle
   startOverlay: () => invoke<void>("start_overlay"),
-  hideOverlay: () => invoke<void>("hide_overlay"),
+  closeOverlay: () => invoke<void>("close_overlay"),
 
-  // Capture: given lasso bounds (CSS px) and the polygon, crop the latest
-  // screenshot to the selection and return it as a JPEG data URL.
-  cropSelection: (bounds: SelectionBounds, polygon: Point[]) =>
-    invoke<string>("crop_selection", { bounds, polygon }),
+  // Capture: given the lasso polygon (CSS px), crop the cached screenshot
+  // and return it as JPEG base64 (no data: prefix).
+  cropSelection: (polygon: Point[]) => invoke<string>("crop_selection", { polygon }),
 
   // Providers
   searchTraceMoe: (jpegBase64: string) => invoke<unknown>("search_tracemoe", { jpegBase64 }),
@@ -56,10 +55,15 @@ export const backend = {
 };
 
 export const events = {
-  onHotkey: (handler: () => void) => listen("zeroflow://hotkey", handler),
-  onMusicResult: (handler: (payload: unknown) => void) => listen("zeroflow://music-result", handler),
+  onHotkey: (handler: () => void) => listen("zeroflow://hotkey", () => handler()),
+  onMusicResult: (handler: (payload: unknown) => void) =>
+    listen("zeroflow://music-result", (e) => handler(e.payload)),
   onToast: (handler: (payload: { message: string; isError?: boolean }) => void) =>
-    listen("zeroflow://toast", handler),
+    listen<{ message: string; isError?: boolean }>("zeroflow://toast", (e) => handler(e.payload)),
+  onOverlayFrame: (handler: (dataUrl: string) => void) =>
+    listen<string>("overlay-frame", (e) => handler(e.payload)),
+  onOverlayToggle: (handler: (dataUrl: string) => void) =>
+    listen<string>("toggle-overlay", (e) => handler(e.payload)),
 };
 
 export { emit };

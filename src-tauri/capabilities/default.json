@@ -1,0 +1,13 @@
+{
+  "$schema": "gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "All ZeroFlow windows: core IPC, global-shortcut, notification",
+  "windows": ["overlay", "settings", "music"],
+  "permissions": [
+    "core:default",
+    "global-shortcut:allow-is-registered",
+    "global-shortcut:allow-register",
+    "global-shortcut:allow-unregister",
+    "notification:default"
+  ]
+}
