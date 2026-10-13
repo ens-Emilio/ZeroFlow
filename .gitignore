@@ -6,4 +6,5 @@ Cargo.lock
 .DS_Store
 .env
 .env.*
-*.swp
+*.swpgen/schemas/
+src-tauri/target/

@@ -63,7 +63,6 @@ pub fn run() {
             hotkey::open_settings,
             hotkey::open_music,
             hotkey::quit_app,
-            capture::start_capture_session,
             capture::grab_frame,
             capture::crop_selection,
             providers::search_tracemoe,
@@ -76,7 +75,6 @@ pub fn run() {
             shazam::stop_music_recognition,
             translate::translate_selection,
             tray::show_toast,
-            tray::quit_app,
         ])
         .run(tauri::generate_context!())
         .expect("error while running ZeroFlow");

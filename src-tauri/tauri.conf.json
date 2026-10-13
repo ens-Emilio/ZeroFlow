@@ -54,15 +54,16 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["appimage", "deb"],
-    "icon": ["static/icons/icon.png", "static/icons/icon.icns", "static/icons/icon.ico"],
-    "resources": ["static/sounds/*"],
-    "linux": {
-      "desktopEntry": {
-        "StartupNotify": true,
-        "StartupWMClass": "ZeroFlow"
-      }
-    }
+    "targets": [
+      "appimage",
+      "deb"
+    ],
+    "icon": [
+      "../static/icons/icon.png"
+    ],
+    "resources": [
+      "../static/sounds/*"
+    ]
   },
   "plugins": {
     "global-shortcut": {

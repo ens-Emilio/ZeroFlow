@@ -4,58 +4,30 @@ version = "0.1.0"
 edition = "2021"
 license = "GPL-3.0-or-later"
 description = "Circle to Search for Linux — Tauri + Svelte port of CircleFlow"
-repository = "https://github.com/your-org/ZeroFlow"
+repository = "https://github.com/ens-Emilio/ZeroFlow"
 
 [dependencies]
-# Tauri core
-tauri = { version = "2", features = ["macros"] }
+tauri = "2"
 tauri-plugin-shell = "2"
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-notification = "2"
-tauri-plugin-os = "2"
-tauri-plugin-process = "2"
 tauri-plugin-single-instance = "2"
-tauri-plugin-updater = "2"
 
 # Desktop integration
-ashpd = "1"                           # xdg-desktop-portal
+ashpd = { version = "0.13", features = ["screenshot"] }  # xdg-desktop-portal
 notify-rust = "4"                     # libnotify
-tray-icon = "0.13"                    # StatusNotifierItem
 dirs = "5"                            # XDG paths
 
-# Audio
-cpal = { version = "0.15", features = ["pipewire"] }
-pipewire = "0.4"                      # low-level PipeWire for monitor streams
-
 # Capture / image
-image = "0.25"                        # PNG/JPEG encode
-imageproc = "0.25"                    # drawing helpers
+image = { version = "0.25", features = ["jpeg", "png"] }
+base64 = "0.22"
 
-# OCR
-leptess = "0.8"                       # Tesseract bindings (needs libtesseract-dev)
+# shortcut: leptess/rxing/cpal/pipewire/reqwest enter in their phases; Cargo.toml
+# stays buildable with only what Phase 0 needs.
 
-# QR
-rxing = "0.4"                         # ZXing port
-
-# Network / Shazam / Lens
-reqwest = { version = "0.12", features = ["json", "rustls-tls", "gzip", "brotli", "cookies"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-tokio = { version = "1.40", features = ["full"] }
-anyhow = "1.0"
-thiserror = "1.0"
-url = "2.5"
-hex = "0.4"                           # Shazam signature
-
-# System
-glob = "0.3"
-walkdir = "2"
-rand = "0.9"
-
-# UI / windowing (overlay)
-# For layer-shell Wayland overlay: smithay-client-toolkit
-# smithay-client-toolkit = { version = "0.18", features = ["layer-shell", "reexports_client"] }
-# For now: fullscreen window fallback via winit (tauri uses it)
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 
 [build-dependencies]
-tauri-build = { version = "2", features = [] }
+tauri-build = { version = "2" }

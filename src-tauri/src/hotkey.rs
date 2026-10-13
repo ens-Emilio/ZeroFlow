@@ -22,7 +22,7 @@ pub fn save_image(jpeg_base64: String) -> Result<Option<String>, String> {
 
 #[tauri::command]
 pub fn open_settings(window: tauri::Window) {
-    if let Ok(settings) = window.get_window("settings") {
+    if let Some(settings) = window.get_webview_window("settings") {
         let _ = settings.show();
         let _ = settings.set_focus();
     }
@@ -30,7 +30,7 @@ pub fn open_settings(window: tauri::Window) {
 
 #[tauri::command]
 pub fn open_music(window: tauri::Window) {
-    if let Ok(music) = window.get_window("music") {
+    if let Some(music) = window.get_webview_window("music") {
         let _ = music.show();
         let _ = music.set_focus();
     }
@@ -44,7 +44,7 @@ pub fn quit_app(app: tauri::AppHandle) {
 // Shows/hides the overlay window. Shared by hotkey toggle and frontend Esc handling.
 #[tauri::command]
 pub fn toggle_overlay(window: tauri::Window) {
-    if let Ok(overlay) = window.get_window("overlay") {
+    if let Some(overlay) = window.get_webview_window("overlay") {
         if overlay.is_visible().unwrap_or(false) {
             let _ = overlay.hide();
         } else {
@@ -60,13 +60,13 @@ pub fn start_overlay(window: tauri::Window) {
 
 #[tauri::command]
 pub fn hide_overlay(window: tauri::Window) {
-    if let Ok(overlay) = window.get_window("overlay") {
+    if let Some(overlay) = window.get_webview_window("overlay") {
         let _ = overlay.hide();
     }
 }
 
 fn show_overlay(window: &tauri::Window) {
-    if let Ok(overlay) = window.get_window("overlay") {
+    if let Some(overlay) = window.get_webview_window("overlay") {
         let _ = overlay
             .show()
             .and_then(|_| overlay.set_always_on_top(true))
