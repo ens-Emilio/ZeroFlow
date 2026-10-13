@@ -25,13 +25,15 @@ Runtime notes (KDE Wayland / KWin / WebKitGTK 4.1):
 
 ## Phase 1 — Core Pipeline
 
+- [x] Crop frame to lasso bounding box → JPEG base64 (bbox, like the original)
+- [x] trace.moe provider (POST https://api.trace.moe/search, detached Rust task)
+- [x] Result via KDE notification (direct D-Bus; the Tauri plugin never reached the daemon)
+- [x] Toolbar chips: Search anime, Copy image (wl-copy), Save image (rfd dialog)
 - [ ] Persistent ScreenCast session (ashpd) + PipeWire frame grab
-- [ ] Crop frame to lasso polygon (imageproc) → JPEG base64
-- [ ] trace.moe provider (REST)
 - [ ] QR scan (rxing on cropped frame)
 - [ ] OCR via Tesseract (leptess) on cropped frame
 - [ ] Text hit-test (port of `OcrTextHitTester`) → selectable words
-- [ ] Toolbar chips: Copy image, Save image, QR chip, Translate
+- [ ] QR chip, Translate chip on the toolbar
 - [ ] Settings window (JSON + Tauri invoke)
 
 ## Phase 2 — Visual Search
