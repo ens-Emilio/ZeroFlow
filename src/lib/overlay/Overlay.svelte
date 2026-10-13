@@ -8,6 +8,8 @@
 
   // Overlay is born visible (maximized) by config; we hide it with CSS.
   let isVisible = $state(false);
+  // "lasso" = drawing; "crop" = focused crop shown with the action toolbar.
+  let mode = $state<"lasso" | "crop" | null>(null);
 
   onMount(() => {
     void backend.debugLog("Overlay mounted");
@@ -41,6 +43,11 @@
       isVisible = !!dataUrl;
       if (dataUrl) {
         overlaySession.screenshotDataUrl = dataUrl;
+      } else {
+        // Fresh lasso session next time this window opens.
+        mode = null;
+        overlaySession.croppedDataUrl = null;
+        overlaySession.selectionBounds = null;
       }
     });
 
@@ -74,9 +81,38 @@
       showToast(`Crop failed: ${e}`, true);
       return;
     }
-    // Search runs in the Rust process (detached task): this window is about
-    // to be destroyed and must not carry the search.
+    // Show the focused crop with the action toolbar; the user picks what
+    // to do with it (search, copy, save) before the overlay goes away.
+    overlaySession.croppedDataUrl = `data:image/jpeg;base64,${jpeg}`;
+    mode = "crop";
+  }
+
+  async function onSearchTraceMoe() {
+    const jpeg = overlaySession.croppedDataUrl?.split(",")[1];
+    if (!jpeg) return;
     void backend.submitSelection(jpeg).catch((e) => console.error("[zf] submit failed", e));
+    void backend.closeOverlay();
+  }
+
+  function onCopyImage() {
+    const jpeg = overlaySession.croppedDataUrl?.split(",")[1];
+    if (!jpeg) return;
+    void backend.copyImage(jpeg).catch((e) => console.error("[zf] copy failed", e));
+    showToast("Copied to clipboard");
+  }
+
+  async function onSaveImage() {
+    const jpeg = overlaySession.croppedDataUrl?.split(",")[1];
+    if (!jpeg) return;
+    try {
+      const path = await backend.saveImage(jpeg);
+      showToast(path ? `Saved to ${path}` : "Save failed", !path);
+    } catch (e) {
+      showToast(`Save failed: ${e}`, true);
+    }
+  }
+
+  function onCloseCrop() {
     void backend.closeOverlay();
   }
 
@@ -91,7 +127,19 @@
       <img class="backdrop" src={overlaySession.screenshotDataUrl} alt="" />
     {/if}
     <div class="dim"></div>
-    <LassoOverlay {onComplete} {onCancel} />
+    {#if mode === "crop" && overlaySession.croppedDataUrl}
+      <div class="crop-panel">
+        <img class="crop-preview" src={overlaySession.croppedDataUrl} alt="Selection" />
+        <div class="crop-toolbar">
+          <button class="chip primary" onpointerdown={onSearchTraceMoe}>Search anime</button>
+          <button class="chip" onpointerdown={onCopyImage}>Copy</button>
+          <button class="chip" onpointerdown={onSaveImage}>Save</button>
+          <button class="chip" onpointerdown={onCloseCrop}>Close</button>
+        </div>
+      </div>
+    {:else}
+      <LassoOverlay {onComplete} {onCancel} />
+    {/if}
   </div>
 {/if}
 
@@ -122,6 +170,45 @@
     inset: 0;
     background: rgba(20, 20, 20, 0.45);
     pointer-events: none;
+  }
+  .crop-panel {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+  }
+  .crop-preview {
+    max-width: 60vw;
+    max-height: 60vh;
+    border-radius: 10px;
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.7);
+  }
+  .crop-toolbar {
+    display: flex;
+    gap: 10px;
+  }
+  .chip {
+    padding: 9px 18px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    background: rgba(30, 30, 32, 0.85);
+    color: #f2f2f4;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .chip:hover {
+    background: rgba(60, 60, 64, 0.9);
+  }
+  .chip.primary {
+    background: #7c5cff;
+    border-color: #7c5cff;
+    color: white;
+  }
+  .chip.primary:hover {
+    background: #6a4be8;
   }
   .toast {
     position: fixed;

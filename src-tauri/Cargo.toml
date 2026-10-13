@@ -21,6 +21,7 @@ dirs = "5"                            # XDG paths
 # Capture / image
 image = { version = "0.25", features = ["jpeg", "png"] }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "multipart", "json"] }
+rfd = "0.15"
 base64 = "0.22"
 
 # shortcut: leptess/rxing/cpal/pipewire enter in their phases; Cargo.toml

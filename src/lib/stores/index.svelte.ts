@@ -51,6 +51,8 @@ export interface OverlaySession {
   screenshotNaturalSize: { w: number; h: number } | null;
   lassoPolygon: Point[] | null;
   selectionBounds: { x: number; y: number; width: number; height: number } | null;
+  // Focused crop shown after the lasso completes, before choosing an action.
+  croppedDataUrl: string | null;
 }
 
 export const overlaySession = $state<OverlaySession>({
@@ -60,6 +62,7 @@ export const overlaySession = $state<OverlaySession>({
   screenshotNaturalSize: null,
   lassoPolygon: null,
   selectionBounds: null,
+  croppedDataUrl: null,
 });
 
 export const musicState = $state({

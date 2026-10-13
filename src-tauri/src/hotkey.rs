@@ -8,20 +8,48 @@ use tauri::{Emitter, Manager};
 
 use crate::capture;
 
-/// Copies a JPEG (base64) to the system clipboard via the xdg clipboard (wl-copy / xclip fallback).
+/// Copies a JPEG (base64) to the system clipboard via wl-copy (Wayland).
 #[tauri::command]
 pub fn copy_image(jpeg_base64: String) -> Result<bool, String> {
-    let _ = jpeg_base64;
-    // Phase 1: pipe to wl-copy (Wayland) or xclip (X11).
-    Err("clipboard image copy not implemented yet (Phase 1)".into())
+    use base64::Engine;
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(jpeg_base64.trim())
+        .map_err(|e| format!("base64 decode: {e}"))?;
+    let child = Command::new("wl-copy")
+        .arg("-t")
+        .arg("image/jpeg")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|e| format!("wl-copy spawn: {e} (is wl-clipboard installed?)"))?;
+    {
+        let mut stdin = child.stdin.unwrap();
+        stdin.write_all(&bytes).map_err(|e| format!("wl-copy write: {e}"))?;
+    }
+    Ok(true)
 }
 
 /// Saves a JPEG to a user-chosen path (native file dialog) and returns the path.
 #[tauri::command]
-pub fn save_image(jpeg_base64: String) -> Result<Option<String>, String> {
-    let _ = jpeg_base64;
-    // Phase 1: rfd file dialog -> fs write.
-    Err("save image not implemented yet (Phase 1)".into())
+pub async fn save_image(jpeg_base64: String) -> Result<Option<String>, String> {
+    use base64::Engine;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(jpeg_base64.trim())
+        .map_err(|e| format!("base64 decode: {e}"))?;
+    let Some(path) = rfd::AsyncFileDialog::new()
+        .set_file_name("zeroflow-selection.jpg")
+        .add_filter("JPEG image", &["jpg", "jpeg"])
+        .save_file()
+        .await
+    else {
+        return Ok(None);
+    };
+    let path = path.path().to_path_buf();
+    std::fs::write(&path, &bytes).map_err(|e| format!("write {path:?}: {e}"))?;
+    Ok(Some(path.display().to_string()))
 }
 
 #[tauri::command]
