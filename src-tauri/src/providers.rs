@@ -102,14 +102,39 @@ pub async fn submit_selection(app: tauri::AppHandle, jpeg_base64: String) -> Res
     Ok(())
 }
 
-fn notify(app: &tauri::AppHandle, title: &str, body: &str) {
-    use tauri_plugin_notification::NotificationExt;
-    let _ = app
-        .notification()
-        .builder()
-        .title(title)
-        .body(body)
-        .show();
+fn notify(app: &tauri::AppHandle, _title: &str, body: &str) {
+    // The Tauri notification plugin on Linux (DBus) is flaky w/ KDE.
+    // Direct DBus call works (tested): gdbus call ... Notify returns ID.
+    use std::process::Command;
+    let title = "ZeroFlow";
+    let app_name = "zeroflow";
+    let icon = "";
+    let urgency = 1; // normal
+    let timeout = 5000; // ms
+    // org.freedesktop.Notifications.Notify signature:
+    // (app_name, replaces_id, icon, summary, body, actions[], hints{}, timeout)
+    // We use hints with "urgency" as byte (1).
+    let hints = "{'urgency': <byte 1>}";
+    let timeout = "5000";
+    let output = Command::new("gdbus")
+        .args([
+            "call", "--session",
+            "--dest", "org.freedesktop.Notifications",
+            "--object-path", "/org/freedesktop/Notifications",
+            "--method", "org.freedesktop.Notifications.Notify",
+            app_name, "0", icon, title, body,
+            "[]", hints, timeout
+        ])
+        .output();
+    match output {
+        Ok(o) if o.status.success() => {
+            eprintln!("zeroflow: notify OK: {}", String::from_utf8_lossy(&o.stdout).trim());
+        }
+        Ok(o) => {
+            eprintln!("zeroflow: notify FAIL: {}", String::from_utf8_lossy(&o.stderr).trim());
+        }
+        Err(e) => eprintln!("zeroflow: notify spawn: {e}"),
+    }
 }
 
 /// Yandex Images — requires session cookies + upload flow. Port of YandexImagesProvider.cs.
