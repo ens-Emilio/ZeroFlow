@@ -31,7 +31,7 @@ Runtime notes (KDE Wayland / KWin / WebKitGTK 4.1):
 - [x] Toolbar chips: Search anime, Copy image (wl-copy), Save image (rfd dialog)
 - [ ] Persistent ScreenCast session (ashpd) + PipeWire frame grab
 - [x] QR scan (rxing on cropped frame; QR chip opens URLs in the browser)
-- [ ] OCR via Tesseract (leptess) on cropped frame
+- [x] OCR via Tesseract (leptess) on cropped frame (Text chip copies text)
 - [ ] Text hit-test (port of `OcrTextHitTester`) → selectable words
 - [x] QR chip on the toolbar
 - [ ] Settings window (JSON + Tauri invoke)
