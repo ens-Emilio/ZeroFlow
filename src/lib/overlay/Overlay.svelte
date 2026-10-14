@@ -87,6 +87,35 @@
     mode = "crop";
   }
 
+  async function onScanQr() {
+    void backend.debugLog("QR chip clicked");
+    const jpeg = overlaySession.croppedDataUrl?.split(",")[1];
+    if (!jpeg) {
+      void backend.debugLog("QR: no croppedDataUrl");
+      return;
+    }
+    void backend.debugLog(`QR: invoking scan_qr, ${jpeg.length} b64 chars`);
+    try {
+      const qr = await backend.scanQr(jpeg);
+      void backend.debugLog(`QR: scan returned ${JSON.stringify(qr)}`);
+      if (qr) {
+        showToast(`QR: ${qr.text.slice(0, 60)}`);
+        void backend.debugLog(`QR found: ${qr.text}`);
+        if (/^https?:\/\//.test(qr.text)) {
+          // Open the decoded URL in the default browser.
+          void backend.openUrl(qr.text).catch((e) =>
+            console.error("[zf] open url failed", e)
+          );
+        }
+      } else {
+        showToast("No QR code found");
+      }
+    } catch (e) {
+      void backend.debugLog(`QR scan error: ${String(e)}`);
+      showToast(`QR scan failed: ${e}`, true);
+    }
+  }
+
   async function onSearchTraceMoe() {
     const jpeg = overlaySession.croppedDataUrl?.split(",")[1];
     if (!jpeg) return;
@@ -131,10 +160,11 @@
       <div class="crop-panel">
         <img class="crop-preview" src={overlaySession.croppedDataUrl} alt="Selection" />
         <div class="crop-toolbar">
-          <button class="chip primary" onpointerdown={onSearchTraceMoe}>Search anime</button>
-          <button class="chip" onpointerdown={onCopyImage}>Copy</button>
-          <button class="chip" onpointerdown={onSaveImage}>Save</button>
-          <button class="chip" onpointerdown={onCloseCrop}>Close</button>
+          <button class="chip primary" onclick={onSearchTraceMoe}>Search anime</button>
+          <button class="chip" onclick={onScanQr}>QR</button>
+          <button class="chip" onclick={onCopyImage}>Copy</button>
+          <button class="chip" onclick={onSaveImage}>Save</button>
+          <button class="chip" onclick={onCloseCrop}>Close</button>
         </div>
       </div>
     {:else}

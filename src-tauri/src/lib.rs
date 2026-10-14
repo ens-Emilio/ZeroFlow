@@ -129,6 +129,7 @@ pub fn run() {
             hotkey::start_overlay,
             hotkey::close_overlay,
             hotkey::debug_log,
+            hotkey::open_url,
             hotkey::copy_image,
             hotkey::save_image,
             hotkey::open_settings,

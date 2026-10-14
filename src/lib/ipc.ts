@@ -30,6 +30,7 @@ export const backend = {
   startOverlay: () => invoke<void>("start_overlay"),
   closeOverlay: () => invoke<void>("close_overlay"),
   debugLog: (message: string) => invoke<void>("debug_log", { message }),
+  openUrl: (url: string) => invoke<void>("open_url", { url }),
 
   // Capture: given the lasso polygon (CSS px), crop the cached screenshot
   // and return it as JPEG base64 (no data: prefix).
@@ -44,7 +45,7 @@ export const backend = {
   // Utilities
   copyImage: (jpegBase64: string) => invoke<boolean>("copy_image", { jpegBase64 }),
   saveImage: (jpegBase64: string) => invoke<string | null>("save_image", { jpegBase64 }),
-  scanQr: (pngBase64: string) => invoke<string | null>("scan_qr", { pngBase64 }),
+  scanQr: (pngBase64: string) => invoke<{ text: string; x: number; y: number; width: number; height: number } | null>("scan_qr", { pngBase64 }),
   ocr: (pngBase64: string, langTag: string) => invoke<unknown>("ocr", { pngBase64, langTag }),
 
   // Music

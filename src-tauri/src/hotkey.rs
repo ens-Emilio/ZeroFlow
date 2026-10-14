@@ -99,6 +99,19 @@ pub fn close_overlay(app: tauri::AppHandle) {
     }
 }
 
+/// Opens a URL in the default browser (xdg-open, standard on Linux DEs).
+#[tauri::command]
+pub fn open_url(url: String) -> Result<(), String> {
+    if !url.starts_with("http://") && !url.starts_with("https://") {
+        return Err("refusing non-http url".into());
+    }
+    std::process::Command::new("xdg-open")
+        .arg(&url)
+        .spawn()
+        .map_err(|e| format!("xdg-open: {e}"))?;
+    Ok(())
+}
+
 /// Frontend telemetry: console.log does not reach stdout on WebKitGTK+KWin.
 #[tauri::command]
 pub fn debug_log(message: String) {
