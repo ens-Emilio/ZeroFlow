@@ -54,6 +54,27 @@ pub fn run() {
             }
         }))
         .setup(|app| {
+            // System tray: the only persistent UI surface on Wayland, where
+            // taskbar-less background apps otherwise have no entry point.
+            {
+                use tauri::menu::{Menu, MenuItem};
+                use tauri::tray::TrayIconBuilder;
+                let settings = MenuItem::with_id(app, "settings", "Settings", true, None::<&str>)?;
+                let music = MenuItem::with_id(app, "music", "Music", true, None::<&str>)?;
+                let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+                let menu = Menu::with_items(app, &[&settings, &music, &quit])?;
+                let png = include_bytes!("../../static/icons/icon.png").as_slice();
+                let decoded = image::load_from_memory(&png)
+                    .map_err(|e| format!("tray icon decode: {e}"))?
+                    .into_rgba8();
+                let (w, h) = decoded.dimensions();
+                let icon = tauri::image::Image::new_owned(decoded.into_raw(), w, h);
+                TrayIconBuilder::with_id("main")
+                    .menu(&menu)
+                    .show_menu_on_left_click(true)
+                    .icon(icon)
+                    .build(app)?;
+            }
             // Register the toggle hotkey at runtime; Wayland goes through the
             // global-shortcuts portal, X11 grabs directly.
             use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
@@ -120,6 +141,25 @@ pub fn run() {
                     });
                 }
             })?;
+            // Tray menu actions.
+            {
+                use tauri::menu::MenuEvent;
+                let handle = app.handle().clone();
+                app.on_menu_event(move |_app, event: MenuEvent| match event.id.as_ref() {
+                    "settings" => {
+                        if let Some(w) = handle.get_webview_window("settings") {
+                            let _ = w.show();
+                        }
+                    }
+                    "music" => {
+                        if let Some(w) = handle.get_webview_window("music") {
+                            let _ = w.show();
+                        }
+                    }
+                    "quit" => handle.exit(0),
+                    _ => {}
+                });
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

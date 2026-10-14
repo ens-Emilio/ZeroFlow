@@ -89,6 +89,7 @@
     // to do with it (search, copy, save) before the overlay goes away.
     overlaySession.croppedDataUrl = `data:image/jpeg;base64,${jpeg}`;
     mode = "crop";
+    void backend.debugLog(`crop done, mode=crop, jpeg=${jpeg.length} b64, visible=${isVisible}`);
   }
 
   async function onOcrText() {

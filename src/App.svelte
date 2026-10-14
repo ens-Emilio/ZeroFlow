@@ -1,11 +1,12 @@
 <script lang="ts">
+  import Settings from "./pages/Settings.svelte";
   let { mode = "overlay" }: { mode?: string } = $props();
 </script>
 
 {#if mode === "overlay"}
   <main class="overlay"></main>
 {:else if mode === "settings"}
-  <main class="settings"><h1>ZeroFlow Settings</h1></main>
+  <Settings />
 {:else}
   <main class="music"><h1>ZeroFlow Music</h1></main>
 {/if}
@@ -16,7 +17,7 @@
     inset: 0;
     background: transparent;
   }
-  main.settings, main.music {
+  main.music {
     padding: 2rem;
     font-family: system-ui, sans-serif;
     color: #e0e0e0;
