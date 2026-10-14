@@ -46,7 +46,8 @@ export const backend = {
   copyImage: (jpegBase64: string) => invoke<boolean>("copy_image", { jpegBase64 }),
   saveImage: (jpegBase64: string) => invoke<string | null>("save_image", { jpegBase64 }),
   scanQr: (pngBase64: string) => invoke<{ text: string; x: number; y: number; width: number; height: number } | null>("scan_qr", { pngBase64 }),
-  ocr: (pngBase64: string, langTag: string) => invoke<unknown>("ocr", { pngBase64, langTag }),
+  ocr: (pngBase64: string, langTag: string) =>
+    invoke<{ words: { text: string; x: number; y: number; width: number; height: number }[]; languageTag: string }>("ocr", { pngBase64, langTag }),
 
   // Music
   startMusicRecognition: () => invoke<void>("start_music_recognition"),

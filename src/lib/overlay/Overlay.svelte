@@ -1,6 +1,6 @@
 <script lang="ts">
   import LassoOverlay from "$lib/overlay/LassoOverlay.svelte";
-  import { overlaySession, toast, showToast } from "$lib/stores/index.svelte";
+  import { overlaySession, settings, toast, showToast } from "$lib/stores/index.svelte";
   import { backend, events } from "$lib/ipc.ts";
   import { invoke } from "@tauri-apps/api/core";
   import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -42,9 +42,13 @@
       void backend.debugLog(`toggle-overlay len=${dataUrl?.length ?? 0}`);
       isVisible = !!dataUrl;
       if (dataUrl) {
+        // Fresh lasso session: a new frame means a new capture round, even if
+        // this page instance survived (HMR) with stale crop state.
+        mode = null;
+        overlaySession.croppedDataUrl = null;
+        overlaySession.selectionBounds = null;
         overlaySession.screenshotDataUrl = dataUrl;
       } else {
-        // Fresh lasso session next time this window opens.
         mode = null;
         overlaySession.croppedDataUrl = null;
         overlaySession.selectionBounds = null;
@@ -85,6 +89,26 @@
     // to do with it (search, copy, save) before the overlay goes away.
     overlaySession.croppedDataUrl = `data:image/jpeg;base64,${jpeg}`;
     mode = "crop";
+  }
+
+  async function onOcrText() {
+    void backend.debugLog("Text chip clicked");
+    const jpeg = overlaySession.croppedDataUrl?.split(",")[1];
+    if (!jpeg) return;
+    try {
+      const doc = await backend.ocr(jpeg, settings.ocrLanguageTag);
+      void backend.debugLog(`OCR: ${doc.words.length} words`);
+      if (doc.words.length === 0) {
+        showToast("No text found");
+        return;
+      }
+      const text = doc.words.map((w) => w.text).join(" ");
+      void navigator.clipboard.writeText(text).catch(() => {});
+      showToast(`Copied: ${text.slice(0, 60)}${text.length > 60 ? "…" : ""}`);
+    } catch (e) {
+      void backend.debugLog(`OCR error: ${String(e)}`);
+      showToast(`OCR failed: ${e}`, true);
+    }
   }
 
   async function onScanQr() {
@@ -161,6 +185,7 @@
         <img class="crop-preview" src={overlaySession.croppedDataUrl} alt="Selection" />
         <div class="crop-toolbar">
           <button class="chip primary" onclick={onSearchTraceMoe}>Search anime</button>
+          <button class="chip" onclick={onOcrText}>Text</button>
           <button class="chip" onclick={onScanQr}>QR</button>
           <button class="chip" onclick={onCopyImage}>Copy</button>
           <button class="chip" onclick={onSaveImage}>Save</button>
@@ -193,6 +218,7 @@
     object-fit: cover;
     user-select: none;
     pointer-events: none;
+    z-index: 0;
   }
   /* Dim layer sits above the screenshot so capture mode is visibly active. */
   .dim {

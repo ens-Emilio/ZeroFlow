@@ -64,7 +64,7 @@
     const pts = path.points;
     if (pts.length < 2) return;
     ctx.strokeStyle = strokeColor;
-    ctx.lineWidth = strokeWidth;
+    ctx.lineWidth = strokeWidth + 3;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     ctx.fillStyle = fillColor;
@@ -78,7 +78,10 @@
 
   function onPointerDown(e: PointerEvent) {
     if (e.button !== 0) return;
-    void backend.debugLog(`lasso down at ${e.clientX},${e.clientY}`);
+    // A freshly created overlay window mounts this page before it is mapped,
+    // so innerWidth/Height were 0 at resize() time: re-measure now.
+    if (canvas && (canvas.width === 0 || canvas.height === 0)) resize();
+    void backend.debugLog(`lasso down at ${e.clientX},${e.clientY} canvas ${canvas?.width}x${canvas?.height}`);
     dragging = true;
     path = new LassoPath(sampleDistancePx);
     path.add({ x: e.clientX, y: e.clientY });
@@ -117,6 +120,7 @@
   .lasso-canvas {
     position: fixed;
     inset: 0;
+    z-index: 10;
     cursor: crosshair;
     touch-action: none;
   }

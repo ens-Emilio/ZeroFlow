@@ -23,9 +23,10 @@ image = { version = "0.25", features = ["jpeg", "png"] }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "multipart", "json"] }
 rfd = "0.15"
 rxing = "0.8"
+leptess = "0.14"  # Tesseract OCR wrapper
 base64 = "0.22"
 
-# shortcut: leptess/rxing/cpal/pipewire enter in their phases; Cargo.toml
+# shortcut: cpal/pipewire enter in their phases
 # stays buildable with only what Phase 0 needs.
 
 serde = { version = "1", features = ["derive"] }
