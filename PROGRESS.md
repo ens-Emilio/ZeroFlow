@@ -34,7 +34,7 @@ Runtime notes (KDE Wayland / KWin / WebKitGTK 4.1):
 - [x] OCR via Tesseract (leptess) on cropped frame (Text chip copies text)
 - [ ] Text hit-test (port of `OcrTextHitTester`) → selectable words
 - [x] QR chip on the toolbar
-- [ ] Settings window (JSON + Tauri invoke)
+- [x] Settings window (JSON + Tauri invoke, Settings.svelte + tray menu)
 
 ## Phase 2 — Visual Search
 
