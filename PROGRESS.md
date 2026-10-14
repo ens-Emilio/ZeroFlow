@@ -30,10 +30,10 @@ Runtime notes (KDE Wayland / KWin / WebKitGTK 4.1):
 - [x] Result via KDE notification (direct D-Bus; the Tauri plugin never reached the daemon)
 - [x] Toolbar chips: Search anime, Copy image (wl-copy), Save image (rfd dialog)
 - [ ] Persistent ScreenCast session (ashpd) + PipeWire frame grab
-- [ ] QR scan (rxing on cropped frame)
+- [x] QR scan (rxing on cropped frame; QR chip opens URLs in the browser)
 - [ ] OCR via Tesseract (leptess) on cropped frame
 - [ ] Text hit-test (port of `OcrTextHitTester`) → selectable words
-- [ ] QR chip, Translate chip on the toolbar
+- [x] QR chip on the toolbar
 - [ ] Settings window (JSON + Tauri invoke)
 
 ## Phase 2 — Visual Search
