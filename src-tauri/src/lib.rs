@@ -5,6 +5,7 @@ mod providers;
 mod qr;
 mod settings;
 mod shazam;
+mod search_engines;
 mod translate;
 mod tray;
 
@@ -185,6 +186,7 @@ pub fn run() {
             providers::open_lens,
             ocr::ocr,
             qr::scan_qr,
+            search_engines::open_search,
             shazam::start_music_recognition,
             shazam::stop_music_recognition,
             translate::translate_selection,

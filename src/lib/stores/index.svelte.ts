@@ -3,6 +3,14 @@
 
 import type { Point } from "../overlay/lasso.ts";
 
+export interface OcrWord {
+  text: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface Settings {
   hotkey: string;
   ignoreHotkeyInFullscreen: boolean;
@@ -53,6 +61,8 @@ export interface OverlaySession {
   selectionBounds: { x: number; y: number; width: number; height: number } | null;
   // Focused crop shown after the lasso completes, before choosing an action.
   croppedDataUrl: string | null;
+  // OCR words for the selectable overlay (Text chip → Select words).
+  ocrWords: OcrWord[];
 }
 
 export const overlaySession = $state<OverlaySession>({
@@ -63,6 +73,7 @@ export const overlaySession = $state<OverlaySession>({
   lassoPolygon: null,
   selectionBounds: null,
   croppedDataUrl: null,
+  ocrWords: [],
 });
 
 export const musicState = $state({

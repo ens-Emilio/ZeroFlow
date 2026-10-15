@@ -1,19 +1,26 @@
 <script lang="ts">
   import LassoOverlay from "$lib/overlay/LassoOverlay.svelte";
+import TextOverlay from "../../pages/TextOverlay.svelte";
   import { overlaySession, settings, toast, showToast } from "$lib/stores/index.svelte";
-  import { backend, events } from "$lib/ipc.ts";
+  import { backend } from "$lib/ipc.ts";
+  import { listen } from "@tauri-apps/api/event";
+  import type { UnlistenFn } from "@tauri-apps/api/event";
   import { invoke } from "@tauri-apps/api/core";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { onMount } from "svelte";
+  import type { OcrWord } from "$lib/stores/index.svelte";
 
   // Overlay is born visible (maximized) by config; we hide it with CSS.
   let isVisible = $state(false);
   // "lasso" = drawing; "crop" = focused crop shown with the action toolbar.
-  let mode = $state<"lasso" | "crop" | null>(null);
+  // "text" = selectable words over the OCR crop.
+  let mode = $state<"lasso" | "crop" | "text" | null>(null);
+  let unlistenToggle = null;
+  let unlistenFrame: UnlistenFn | null = null;
+  let unlistenHotkey: UnlistenFn | null = null;
 
-  onMount(() => {
+  onMount(async () => {
     void backend.debugLog("Overlay mounted");
-    void (async () => {
     // The overlay window is born hidden; WebKitGTK may load this page only
     // on first show(), after toggle-overlay was already emitted. Recover:
     // if the window is visible now, adopt the pending frame.
@@ -31,48 +38,48 @@
     } catch (e) {
       console.error("[zf] recovery failed", e);
     }
-    })();
-
-
-    // Backend shows/hides the real window; we just track state and grab the
-    // frame for the backdrop each time the overlay is opened.
-    // Backend decides the state: non-empty payload = show with this frame,
-    // empty = hide. No blind toggling (window state and UI state drifted).
-    const unlistenToggle = events.onOverlayToggle((dataUrl) => {
-      void backend.debugLog(`toggle-overlay len=${dataUrl?.length ?? 0}`);
-      isVisible = !!dataUrl;
-      if (dataUrl) {
-        // Fresh lasso session: a new frame means a new capture round, even if
-        // this page instance survived (HMR) with stale crop state.
-        mode = null;
-        overlaySession.croppedDataUrl = null;
-        overlaySession.selectionBounds = null;
-        overlaySession.screenshotDataUrl = dataUrl;
-      } else {
-        mode = null;
-        overlaySession.croppedDataUrl = null;
-        overlaySession.selectionBounds = null;
-      }
-    });
-
     // Legacy events (kept for compatibility with crop etc.)
-    const unlistenFrame = events.onOverlayFrame((dataUrl) => {
-      overlaySession.screenshotDataUrl = dataUrl;
+    unlistenFrame = await listen("zeroflow://overlay-frame", (e: any) => {
+      overlaySession.screenshotDataUrl = e.payload;
     });
-    const unlistenHotkey = events.onHotkey(async () => {
+    unlistenHotkey = await listen("zeroflow://hotkey", (e: any) => {
       void backend.closeOverlay();
     });
     window.addEventListener("keydown", (e) => {
       if (e.key === "Escape") void backend.closeOverlay();
     });
 
+    // Main toggle-overlay listener: the backend shows/hides the real window;
+    // we just track state and grab the frame for the backdrop each time the
+    // overlay is opened.
+    let unlistenToggle: UnlistenFn | null = null;
+    const registerToggleListener = async () => {
+      if (unlistenToggle) unlistenToggle();
+      unlistenToggle = await listen("zeroflow://toggle-overlay", (e: any) => {
+        const dataUrl = e.payload; void backend.debugLog(`toggle-overlay len=${dataUrl?.length ?? 0}`);
+        isVisible = !!dataUrl;
+        if (dataUrl) {
+          // Fresh lasso session: a new frame means a new capture round, even if
+          // this page instance survived (HMR) with stale crop state.
+          mode = null;
+          overlaySession.croppedDataUrl = null;
+          overlaySession.selectionBounds = null;
+          overlaySession.screenshotDataUrl = e.payload;
+        } else {
+          mode = null;
+          overlaySession.croppedDataUrl = null;
+          overlaySession.selectionBounds = null;
+        }
+      });
+    };
+    await registerToggleListener();
+
     return () => {
-      void unlistenToggle.then((f) => f());
-      void unlistenFrame.then((f) => f());
-      void unlistenHotkey.then((f) => f());
+      if (unlistenToggle) unlistenToggle();
+      if (unlistenFrame) unlistenFrame();
+      if (unlistenHotkey) unlistenHotkey();
     };
   });
-
   async function onComplete(
     bounds: { x: number; y: number; width: number; height: number },
     path: { x: number; y: number }[]
@@ -106,9 +113,29 @@
       const text = doc.words.map((w) => w.text).join(" ");
       void navigator.clipboard.writeText(text).catch(() => {});
       showToast(`Copied: ${text.slice(0, 60)}${text.length > 60 ? "…" : ""}`);
+      overlaySession.ocrWords = doc.words;
     } catch (e) {
       void backend.debugLog(`OCR error: ${String(e)}`);
       showToast(`OCR failed: ${e}`, true);
+    }
+  }
+
+  async function onOcrSelect() {
+    void backend.debugLog("Select words chip clicked");
+    if (!overlaySession.ocrWords || overlaySession.ocrWords.length === 0) {
+      showToast("No OCR data; run Text first", true);
+      return;
+    }
+    mode = "text";
+  }
+
+  async function onOcrWordSearch(word: string) {
+    void backend.debugLog(`Word search: ${word}`);
+    try {
+      await backend.openSearch(word, settings.textSearchEngine);
+      showToast(`Searching: ${word}`);
+    } catch (e) {
+      showToast(`Search failed: ${e}`, true);
     }
   }
 
@@ -187,12 +214,20 @@
         <div class="crop-toolbar">
           <button class="chip primary" onclick={onSearchTraceMoe}>Search anime</button>
           <button class="chip" onclick={onOcrText}>Text</button>
+    <button class="chip" onclick={onOcrSelect}>Select words</button>
           <button class="chip" onclick={onScanQr}>QR</button>
           <button class="chip" onclick={onCopyImage}>Copy</button>
           <button class="chip" onclick={onSaveImage}>Save</button>
           <button class="chip" onclick={onCloseCrop}>Close</button>
         </div>
       </div>
+    {:else if mode === "text"}
+      <TextOverlay
+        words={overlaySession.ocrWords}
+        imageDataUrl={overlaySession.croppedDataUrl ?? ""}
+        onClose={onCloseCrop}
+        onSearch={onOcrWordSearch}
+      />
     {:else}
       <LassoOverlay {onComplete} {onCancel} />
     {/if}
