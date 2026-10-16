@@ -38,7 +38,7 @@ Runtime notes (KDE Wayland / KWin / WebKitGTK 4.1):
 
 ## Phase 2 — Visual Search
 
-- [ ] Google Lens: decision (a) xdg-open, (b) WebKitGTK + JS, (c) CEF
+- [x] Google Lens (direct upload to lens.google.com/v3/upload, opens results URL)
 - [ ] Yandex Images: upload flow port
 - [ ] Pinterest: HTTP flow port
 - [ ] Built-in results window (only if Lens needs WebKit/CEF)
