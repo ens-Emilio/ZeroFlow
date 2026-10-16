@@ -102,6 +102,13 @@ pub fn run() {
                                 return;
                             }
                         }
+                        // Clean up any existing overlay webview before creating a new one.
+                        // Events may arrive in quick succession or HMR may remount the page,
+                        // leaving a stale webview that would cause "label already exists".
+                        if let Some(overlay) = handle.get_webview_window("overlay") {
+                            let _ = overlay.close();
+                        }
+
                         let url = match crate::capture::grab_frame_inner(false).await {
                             Ok(url) => url,
                             Err(e) => {
@@ -109,9 +116,6 @@ pub fn run() {
                                 return;
                             }
                         };
-                        if let Some(overlay) = handle.get_webview_window("overlay") {
-                            let _ = overlay.close();
-                        }
                         let overlay = tauri::webview::WebviewWindowBuilder::new(
                             &handle,
                             "overlay",

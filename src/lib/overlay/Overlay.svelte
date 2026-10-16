@@ -15,6 +15,8 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
   // "lasso" = drawing; "crop" = focused crop shown with the action toolbar.
   // "text" = selectable words over the OCR crop.
   let mode = $state<"lasso" | "crop" | "text" | null>(null);
+  let searchProvider = $state(settings.searchProviderId);
+  let searchMenuOpen = $state(false);
   let unlistenToggle = null;
   let unlistenFrame: UnlistenFn | null = null;
   let unlistenHotkey: UnlistenFn | null = null;
@@ -47,6 +49,10 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
     });
     window.addEventListener("keydown", (e) => {
       if (e.key === "Escape") void backend.closeOverlay();
+    });
+    window.addEventListener("click", (e) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest(".search-dropdown")) searchMenuOpen = false;
     });
 
     // Main toggle-overlay listener: the backend shows/hides the real window;
@@ -127,6 +133,39 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
       return;
     }
     mode = "text";
+  }
+
+  function selectProvider(id: string) {
+    void backend.debugLog(`select provider: ${id}`);
+    searchProvider = id;
+    settings.searchProviderId = id;
+    searchMenuOpen = false;
+    void onSearchProvider();
+  }
+
+  async function onSearchProvider() {
+    const jpeg = overlaySession.croppedDataUrl?.split(",")[1];
+    if (!jpeg) return;
+    void backend.debugLog(`search via ${searchProvider}, jpeg=${jpeg.length} b64`);
+    try {
+      switch (searchProvider) {
+        case "tracemoe":
+          await backend.searchTraceMoe(jpeg);
+          break;
+        case "googlelens":
+          await backend.openLens(jpeg);
+          break;
+        case "yandeximages":
+          await backend.searchYandex(jpeg);
+          break;
+        case "pinterest":
+          await backend.searchPinterest(jpeg);
+          break;
+      }
+      showToast(`Searching via ${searchProvider}...`);
+    } catch (e) {
+      showToast(`Search failed: ${e}`, true);
+    }
   }
 
   async function onOcrWordSearch(word: string) {
@@ -212,7 +251,28 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
       <div class="crop-panel">
         <img class="crop-preview" src={overlaySession.croppedDataUrl} alt="Selection" />
         <div class="crop-toolbar">
-          <button class="chip primary" onclick={onSearchTraceMoe}>Search anime</button>
+          <div class="search-dropdown">
+            <button class="chip primary" onclick={() => (searchMenuOpen = !searchMenuOpen)}>
+              Search
+              <span class="caret">▾</span>
+            </button>
+            {#if searchMenuOpen}
+            <div class="search-menu open">
+              <button class="menu-item" onclick={() => selectProvider("tracemoe")}>
+                <span class="menu-icon">🔍</span> trace.moe
+              </button>
+              <button class="menu-item" onclick={() => selectProvider("googlelens")}>
+                <span class="menu-icon">🌐</span> Google Lens
+              </button>
+              <button class="menu-item" onclick={() => selectProvider("yandeximages")}>
+                <span class="menu-icon">🖼️</span> Yandex Images
+              </button>
+              <button class="menu-item" onclick={() => selectProvider("pinterest")}>
+                <span class="menu-icon">📌</span> Pinterest
+              </button>
+            </div>
+            {/if}
+          </div>
           <button class="chip" onclick={onOcrText}>Text</button>
     <button class="chip" onclick={onOcrSelect}>Select words</button>
           <button class="chip" onclick={onScanQr}>QR</button>
@@ -302,6 +362,67 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
   .chip.primary:hover {
     background: #6a4be8;
   }
+  .search-dropdown {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+  }
+  .search-dropdown .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .caret-btn {
+    padding: 9px 10px;
+    border-left: none;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    background: #7c5cff;
+    border-color: #7c5cff;
+  }
+  .caret-btn:hover {
+    background: #6a4be8;
+  }
+  .search-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 6px;
+    background: rgba(30, 30, 32, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 10px;
+    padding: 6px;
+    min-width: 180px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-8px);
+    transition: opacity 0.15s, transform 0.15s, visibility 0.15s;
+    z-index: 20;
+  }
+  .search-menu.open {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+  }
+  .menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 12px;
+    border: none;
+    background: transparent;
+    color: #f2f2f4;
+    font: 14px system-ui, sans-serif;
+    text-align: left;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .menu-item:hover {
+    background: rgba(60, 60, 64, 0.9);
+  }
+  .menu-icon { font-size: 16px; }
   .toast {
     position: fixed;
     bottom: 32px;

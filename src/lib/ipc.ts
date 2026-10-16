@@ -41,6 +41,7 @@ export const backend = {
   submitSelection: (jpegBase64: string) => invoke<void>("submit_selection", { jpegBase64 }),
   searchYandex: (jpegBase64: string) => invoke<unknown>("search_yandex", { jpegBase64 }),
   openLens: (jpegBase64: string) => invoke<unknown>("open_lens", { jpegBase64 }),
+  searchPinterest: (jpegBase64: string) => invoke<unknown>("search_pinterest", { jpegBase64 }),
 
   // Utilities
   copyImage: (jpegBase64: string) => invoke<boolean>("copy_image", { jpegBase64 }),

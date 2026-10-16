@@ -156,6 +156,77 @@ pub async fn search_pinterest(jpeg_base64: String) -> Result<serde_json::Value, 
 /// original's JS injection scripts, (c) CEF if WebKit is blocked.
 #[tauri::command]
 pub async fn open_lens(jpeg_base64: String) -> Result<serde_json::Value, String> {
-    let _ = jpeg_base64;
-    Err("Lens not implemented yet (Phase 2, see PLAN F0)".into())
+    eprintln!("zeroflow: open_lens invoked, {} b64 chars", jpeg_base64.len());
+    // Lens expects the raw JPEG bytes, not the base64 string.
+    let jpeg = match base64::decode(jpeg_base64.trim()) {
+        Ok(b) => b,
+        Err(e) => return Err(format!("invalid base64: {e}")),
+    };
+
+    let client = reqwest::Client::builder()
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .map_err(|e| format!("client build: {e}"))?;
+
+    // Same upload as CircleFlow's GoogleLensBrowserOperation: a single
+    // encoded_image field with the raw JPEG, posted to v3/upload.
+    let form = reqwest::multipart::Form::new().part(
+        "encoded_image",
+        reqwest::multipart::Part::bytes(jpeg)
+            .mime_str("image/jpeg")
+            .map_err(|e| format!("mime: {e}"))?
+            .file_name("upload.jpg"),
+    );
+
+    let resp = client
+        .post("https://lens.google.com/v3/upload")
+        .header("Origin", "https://lens.google.com")
+        .header("Referer", "https://lens.google.com/")
+        .multipart(form)
+        .send()
+        .await
+        .map_err(|e| format!("Lens request failed: {e}"))?;
+
+    eprintln!("zeroflow: lens upload status {}", resp.status());
+
+    // Lens answers with a redirect to the results page.
+    let mut url = None;
+    if let Some(loc) = resp.headers().get("location") {
+        if let Ok(loc_str) = loc.to_str() {
+            if loc_str.starts_with('/') {
+                url = Some(format!("https://lens.google.com{}", loc_str));
+            } else {
+                url = Some(loc_str.to_string());
+            }
+        }
+    }
+    if let Some(url) = url {
+        eprintln!("zeroflow: lens results url: {}", url);
+        let _ = crate::hotkey::open_url(url.clone());
+        return Ok(serde_json::json!({ "url": url }));
+    }
+
+    let body_text = match resp.text().await {
+        Ok(t) => t,
+        Err(e) => return Err(format!("failed to read response: {e}")),
+    };
+    eprintln!("zeroflow: lens body[:300]: {}", &body_text[..body_text.len().min(300)]);
+
+    use scraper::{Html, Selector};
+    let document = Html::parse_document(&body_text);
+    let link_sel = Selector::parse("a[href]").map_err(|e| format!("bad selector: {e}"))?;
+    for link in document.select(&link_sel) {
+        if let Some(href) = link.value().attr("href") {
+            if href.starts_with("https://lens.google.com/search")
+                || href.contains("udm=26")
+                || href.contains("tbm=isch")
+            {
+                let _ = crate::hotkey::open_url(href.to_string());
+                return Ok(serde_json::json!({ "url": href }));
+            }
+        }
+    }
+
+    Err("Google Lens did not return a results page".into())
 }
