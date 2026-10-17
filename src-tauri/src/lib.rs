@@ -4,6 +4,7 @@ mod ocr;
 mod providers;
 mod qr;
 mod settings;
+mod music;
 mod shazam;
 mod search_engines;
 mod translate;

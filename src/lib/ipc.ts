@@ -52,7 +52,7 @@ export const backend = {
     invoke<{ words: { text: string; x: number; y: number; width: number; height: number }[]; languageTag: string }>("ocr", { pngBase64, langTag }),
 
   // Music
-  startMusicRecognition: () => invoke<void>("start_music_recognition"),
+  startMusicRecognition: () => invoke<{ status: string; track?: unknown; recognition?: unknown; error?: string }>("start_music_recognition"),
   stopMusicRecognition: () => invoke<void>("stop_music_recognition"),
 
   // Translation
