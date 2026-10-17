@@ -27,6 +27,7 @@ pub struct Settings {
     pub ocr_language_tag: String,
     pub app_language_tag: String,
     pub onboarding_completed: bool,
+    pub target_lang: String,
 }
 
 impl Default for Settings {
@@ -51,6 +52,7 @@ impl Default for Settings {
             ocr_language_tag: String::new(),
             app_language_tag: String::new(),
             onboarding_completed: false,
+            target_lang: String::from("pt-BR"),
         }
     }
 }

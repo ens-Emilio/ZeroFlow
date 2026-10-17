@@ -29,6 +29,7 @@ export interface Settings {
   musicHistoryRetentionDays: number;
   searchProviderId: string;
   hiddenSearchProviderIds: string[];
+  targetLang: string;
 }
 
 export const settings = $state<Settings>({
@@ -49,6 +50,7 @@ export const settings = $state<Settings>({
   musicHistoryRetentionDays: 28,
   searchProviderId: "googlelens",
   hiddenSearchProviderIds: ["yandeximages"],
+  targetLang: "pt-BR",
 });
 
 // Mutable overlay state during a drag session.

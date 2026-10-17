@@ -7,6 +7,7 @@ mod settings;
 mod shazam;
 mod search_engines;
 mod translate;
+mod translate_text;
 mod tray;
 
 use settings::Settings;
@@ -194,6 +195,7 @@ pub fn run() {
             shazam::start_music_recognition,
             shazam::stop_music_recognition,
             translate::translate_selection,
+            translate_text::translate_text,
             tray::show_toast,
         ])
         .run(tauri::generate_context!())

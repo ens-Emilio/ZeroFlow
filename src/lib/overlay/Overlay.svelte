@@ -145,6 +145,25 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
     }
   }
 
+  async function onOcrTranslate() {
+    void backend.debugLog("Translate chip clicked");
+    const jpeg = overlaySession.croppedDataUrl?.split(",")[1];
+    if (!jpeg) return;
+    const text = (overlaySession.ocrWords ?? []).map((w) => w.text).join(" ").trim();
+    if (!text) {
+      showToast("No text; run Text first", true);
+      return;
+    }
+    try {
+      const result = await backend.translateText(text, settings.targetLang);
+      const translated = result.translatedText;
+      void navigator.clipboard.writeText(translated).catch(() => {});
+      showToast(`Translated: ${translated.slice(0, 60)}`);
+    } catch (e) {
+      showToast(`Translation failed: ${e}`, true);
+    }
+  }
+
   async function onOcrSelect() {
     void backend.debugLog("Select words chip clicked");
     if (!overlaySession.ocrWords || overlaySession.ocrWords.length === 0) {
@@ -295,6 +314,7 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
             {/if}
           </div>
           <button class="chip" onclick={onOcrText}>Text</button>
+    <button class="chip" onclick={onOcrTranslate}>Translate</button>
     <button class="chip" onclick={onOcrSearchText}>Search text</button>
     <button class="chip" onclick={onOcrSelect}>Select words</button>
           <button class="chip" onclick={onScanQr}>QR</button>
