@@ -18,6 +18,7 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
   let searchProvider = $state(settings.searchProviderId);
   let searchMenuOpen = $state(false);
   let unlistenToggle = null;
+  let selectedOcrWord = $state<string | null>(null);
   let unlistenFrame: UnlistenFn | null = null;
   let unlistenHotkey: UnlistenFn | null = null;
 
@@ -126,6 +127,24 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
     }
   }
 
+  async function onOcrSearchText() {
+    void backend.debugLog("Search text chip clicked");
+    // If a word was selected via hit-test, search it; otherwise search
+    // the whole recognized text.
+    const query = selectedOcrWord
+      ?? (overlaySession.ocrWords ?? []).map((w) => w.text).join(" ").trim();
+    if (!query) {
+      showToast("No text; run Text first", true);
+      return;
+    }
+    try {
+      await backend.openSearch(query, settings.textSearchEngine);
+      showToast(`Searching: ${query.slice(0, 60)}`);
+    } catch (e) {
+      showToast(`Search failed: ${e}`, true);
+    }
+  }
+
   async function onOcrSelect() {
     void backend.debugLog("Select words chip clicked");
     if (!overlaySession.ocrWords || overlaySession.ocrWords.length === 0) {
@@ -168,8 +187,10 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
     }
   }
 
+
   async function onOcrWordSearch(word: string) {
-    void backend.debugLog(`Word search: ${word}`);
+    selectedOcrWord = word;
+    void backend.debugLog(`selected OCR word: ${word}`);
     try {
       await backend.openSearch(word, settings.textSearchEngine);
       showToast(`Searching: ${word}`);
@@ -274,6 +295,7 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
             {/if}
           </div>
           <button class="chip" onclick={onOcrText}>Text</button>
+    <button class="chip" onclick={onOcrSearchText}>Search text</button>
     <button class="chip" onclick={onOcrSelect}>Select words</button>
           <button class="chip" onclick={onScanQr}>QR</button>
           <button class="chip" onclick={onCopyImage}>Copy</button>
