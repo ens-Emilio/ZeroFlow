@@ -17,6 +17,7 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
   let mode = $state<"lasso" | "crop" | "text" | null>(null);
   let searchProvider = $state(settings.searchProviderId);
   let searchMenuOpen = $state(false);
+  let translateMenuOpen = $state(false);
   let unlistenToggle = null;
   let selectedOcrWord = $state<string | null>(null);
   let unlistenFrame: UnlistenFn | null = null;
@@ -53,7 +54,10 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
     });
     window.addEventListener("click", (e) => {
       const target = e.target as HTMLElement;
-      if (!target.closest(".search-dropdown")) searchMenuOpen = false;
+      if (!target.closest(".search-dropdown")) {
+        searchMenuOpen = false;
+        translateMenuOpen = false;
+      }
     });
 
     // Main toggle-overlay listener: the backend shows/hides the real window;
@@ -159,6 +163,22 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
       const translated = result.translatedText;
       void navigator.clipboard.writeText(translated).catch(() => {});
       showToast(`Translated: ${translated.slice(0, 60)}`);
+    } catch (e) {
+      showToast(`Translation failed: ${e}`, true);
+    }
+  }
+
+  async function onOcrTranslateImage() {
+    void backend.debugLog("Translate image chip clicked");
+    const jpeg = overlaySession.croppedDataUrl?.split(",")[1];
+    if (!jpeg) return;
+    try {
+      const result = await backend.translateImage(jpeg, settings.targetLang);
+      const translatedB64 = result.translatedPngBase64;
+      void backend.debugLog(`translate image ok, ${translatedB64.length} b64 chars`);
+      // Replace the crop preview with the translated image.
+      overlaySession.croppedDataUrl = `data:image/png;base64,${translatedB64}`;
+      showToast("Translated image ready (preview updated)");
     } catch (e) {
       showToast(`Translation failed: ${e}`, true);
     }
@@ -314,7 +334,21 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
             {/if}
           </div>
           <button class="chip" onclick={onOcrText}>Text</button>
-    <button class="chip" onclick={onOcrTranslate}>Translate</button>
+    <div class="search-dropdown">
+      <button class="chip" onclick={() => (translateMenuOpen = !translateMenuOpen)}>
+        Translate <span class="caret">▾</span>
+      </button>
+      {#if translateMenuOpen}
+      <div class="search-menu open">
+        <button class="menu-item" onclick={() => { translateMenuOpen = false; void onOcrTranslate(); }}>
+          <span class="menu-icon">📝</span> Text (LibreTranslate)
+        </button>
+        <button class="menu-item" onclick={() => { translateMenuOpen = false; void onOcrTranslateImage(); }}>
+          <span class="menu-icon">🖼️</span> Image (Google)
+        </button>
+      </div>
+      {/if}
+    </div>
     <button class="chip" onclick={onOcrSearchText}>Search text</button>
     <button class="chip" onclick={onOcrSelect}>Select words</button>
           <button class="chip" onclick={onScanQr}>QR</button>

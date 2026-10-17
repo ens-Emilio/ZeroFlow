@@ -140,15 +140,58 @@ fn notify(app: &tauri::AppHandle, _title: &str, body: &str) {
 /// Yandex Images — requires session cookies + upload flow. Port of YandexImagesProvider.cs.
 #[tauri::command]
 pub async fn search_yandex(jpeg_base64: String) -> Result<serde_json::Value, String> {
-    let _ = jpeg_base64;
-    Err("Yandex not implemented yet (Phase 2)".into())
+    // Reverse image search needs a public URL: upload the crop to a free
+    // anonymous host, then open Yandex with that URL.
+    let jpeg = base64::decode(jpeg_base64.trim())
+        .map_err(|e| format!("invalid base64: {e}"))?;
+    let url = upload_to_host(&jpeg).await?;
+    let search = format!(
+        "https://yandex.com/images/search?rpt=imageview&url={}",
+        urlencoding::encode(&url)
+    );
+    let _ = crate::hotkey::open_url(search.clone());
+    Ok(serde_json::json!({ "url": search }))
 }
 
 /// Pinterest — HTTP flow. Port of PinterestProvider.cs.
 #[tauri::command]
 pub async fn search_pinterest(jpeg_base64: String) -> Result<serde_json::Value, String> {
-    let _ = jpeg_base64;
-    Err("Pinterest not implemented yet (Phase 2)".into())
+    let jpeg = base64::decode(jpeg_base64.trim())
+        .map_err(|e| format!("invalid base64: {e}"))?;
+    let url = upload_to_host(&jpeg).await?;
+    let search = format!(
+        "https://www.pinterest.com/visual-search/?image_url={}",
+        urlencoding::encode(&url)
+    );
+    let _ = crate::hotkey::open_url(search.clone());
+    Ok(serde_json::json!({ "url": search }))
+}
+
+/// Uploads bytes to a free anonymous file host and returns the public URL.
+/// 0x0.st: no account, no key, files expire after ~30 days of inactivity.
+async fn upload_to_host(jpeg: &[u8]) -> Result<String, String> {
+    let client = reqwest::Client::new();
+    let part = reqwest::multipart::Part::bytes(jpeg.to_vec())
+        .mime_str("image/jpeg")
+        .map_err(|e| format!("mime: {e}"))?
+        .file_name("upload.jpg");
+    let form = reqwest::multipart::Form::new().part("file", part);
+    let resp = client
+        .post("https://0x0.st")
+        .header("User-Agent", "ZeroFlow/0.1 (https://github.com/ens-Emilio/ZeroFlow)")
+        .multipart(form)
+        .send()
+        .await
+        .map_err(|e| format!("upload failed: {e}"))?;
+    if !resp.status().is_success() {
+        return Err(format!("upload host returned {}", resp.status()));
+    }
+    let url = resp.text().await.map_err(|e| format!("upload read: {e}"))?;
+    let url = url.trim().to_string();
+    if !url.starts_with("https://") {
+        return Err(format!("upload host returned unexpected body: {}", &url[..url.len().min(100)]));
+    }
+    Ok(url)
 }
 
 /// Google Lens — the F0 risk item. Phase 2 decides between:

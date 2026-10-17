@@ -64,7 +64,7 @@
     const pts = path.points;
     if (pts.length < 2) return;
     ctx.strokeStyle = strokeColor;
-    ctx.lineWidth = strokeWidth + 3;
+    ctx.lineWidth = strokeWidth + 1;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     ctx.fillStyle = fillColor;

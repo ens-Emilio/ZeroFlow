@@ -60,6 +60,8 @@ export const backend = {
     invoke<unknown>("translate_selection", { jpegBase64, targetLang }),
   translateText: (text: string, targetLang: string) =>
     invoke<{ translatedText: string }>("translate_text", { text, targetLang }),
+  translateImage: (jpegBase64: string, targetLang: string) =>
+    invoke<{ translatedPngBase64: string }>("translate_image", { jpegBase64, targetLang }),
 };
 
 export const events = {
