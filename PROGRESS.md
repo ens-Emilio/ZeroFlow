@@ -32,7 +32,7 @@
 - [ ] Provider selector in toolbar / settings
 
 ## Phase 3 — Text, Translation, Music
-- [ ] Music recognition: PipeWire monitor → 16 kHz mono → Shazam API port
+- [x] Music recognition: parec monitor → 16 kHz mono → Shazam API port (SongRec fingerprint+codec+client, progressive 4/8/12s)
 - [ ] Music history (local JSON)
 - [ ] Onboarding flow
 
