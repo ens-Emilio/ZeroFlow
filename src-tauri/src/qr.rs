@@ -1,4 +1,4 @@
-// QR code scanning from the captured frame. Port of CTS/QrCodes/QrCodeScanner.cs (ZXing.Net -> rxing).
+// QR code scanning from the captured frame. Port of reference/CTS/QrCodes/QrCodeScanner.cs (ZXing.Net -> rxing).
 
 use serde::{Deserialize, Serialize};
 

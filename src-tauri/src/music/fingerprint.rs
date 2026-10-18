@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Port of CTS/MusicRecognition/Fingerprinting/ShazamSignatureGenerator.cs (SongRec).
+// Port of reference/CTS/MusicRecognition/Fingerprinting/ShazamSignatureGenerator.cs (SongRec).
 
 use num_complex::Complex32;
 use rustfft::FftPlanner;

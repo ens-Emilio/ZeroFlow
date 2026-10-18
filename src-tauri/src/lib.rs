@@ -2,18 +2,21 @@ mod capture;
 mod hotkey;
 mod ocr;
 mod providers;
+mod search_coordinator;
 mod qr;
 mod settings;
 mod music;
+mod music_history;
 mod shazam;
 mod search_engines;
-mod translate;
 mod translate_text;
 mod google_translate;
 mod tray;
 
 use settings::Settings;
 use std::str::FromStr;
+use std::sync::Mutex;
+use std::time::Instant;
 use tauri::Manager;
 
 #[tauri::command]
@@ -46,6 +49,7 @@ fn json_merge(base: &serde_json::Value, patch: serde_json::Value) -> serde_json:
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    static LAST_TOGGLE: Mutex<Option<Instant>> = Mutex::new(None);
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
@@ -90,6 +94,7 @@ pub fn run() {
             // toggles visibility via CSS so no window protocol ops ever run.
             gs.on_shortcut(shortcut, move |_app, _sc, event| {
                 if event.state == ShortcutState::Pressed {
+                    { let mut g = LAST_TOGGLE.lock().unwrap(); if let Some(t) = *g { if t.elapsed().as_millis() < 400 { return; } } *g = Some(Instant::now()); }
                     let handle = handle.clone();
                     // Spawn async: grab the frame BEFORE showing the overlay so
                     // the screenshot does not contain the overlay itself.
@@ -186,17 +191,15 @@ pub fn run() {
             capture::grab_frame,
             capture::get_pending_frame,
             capture::crop_selection,
-            providers::search_tracemoe,
-            providers::submit_selection,
-            providers::search_yandex,
-            providers::search_pinterest,
-            providers::open_lens,
+            search_coordinator::search_visual,
             ocr::ocr,
             qr::scan_qr,
             search_engines::open_search,
             shazam::start_music_recognition,
             shazam::stop_music_recognition,
-            translate::translate_selection,
+            music_history::get_music_history,
+            music_history::clear_music_history,
+            shazam::stop_music_recognition,
             translate_text::translate_text,
             google_translate::translate_image,
             tray::show_toast,

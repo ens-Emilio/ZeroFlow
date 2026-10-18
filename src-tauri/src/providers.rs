@@ -1,23 +1,5 @@
 // Visual search providers: trace.moe, Yandex, Pinterest, Google Lens.
-// Ports of CTS/Search/*Provider.cs.
-
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "camelCase")]
-pub enum PreparedSearch {
-    /// Opens a URL in a browser (external or built-in).
-    Url { url: String },
-    /// Runs an HTTP flow and returns structured results.
-    Results { results: serde_json::Value },
-}
-
-/// trace.moe — pure REST, easiest provider. Port of TraceMoeProvider.cs.
-#[tauri::command]
-pub async fn search_tracemoe(jpeg_base64: String) -> Result<serde_json::Value, String> {
-    search_tracemoe_inner(jpeg_base64).await
-}
-
+// Ports of reference/CTS/Search/*Provider.cs.
 pub async fn search_tracemoe_inner(jpeg_base64: String) -> Result<serde_json::Value, String> {
     use base64::Engine;
     let bytes = base64::engine::general_purpose::STANDARD
@@ -30,7 +12,10 @@ pub async fn search_tracemoe_inner(jpeg_base64: String) -> Result<serde_json::Va
         .map_err(|e| e.to_string())?;
     let form = reqwest::multipart::Form::new().part("image", part);
 
-    let resp = reqwest::Client::new()
+    let resp = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("trace.moe client: {e}"))?
         .post("https://api.trace.moe/search")
         .header("trace.moe-api-key", std::env::var("TRACE_MOE_API_KEY").unwrap_or_default())
         .multipart(form)
@@ -73,76 +58,12 @@ pub async fn search_tracemoe_inner(jpeg_base64: String) -> Result<serde_json::Va
     Ok(value)
 }
 
-/// Kicks off a trace.moe search on a detached task: the overlay window may be
-/// destroyed right after this returns, so the search must not live in the
-/// webview's JS context.
-#[tauri::command]
-pub async fn submit_selection(app: tauri::AppHandle, jpeg_base64: String) -> Result<(), String> {
-    tauri::async_runtime::spawn(async move {
-        match search_tracemoe_inner(jpeg_base64).await {
-            Ok(value) => {
-                let title = match value.get("result").and_then(|r| r.as_array()) {
-                    Some(docs) if !docs.is_empty() => {
-                        let best = &docs[0];
-                        let sim = best.get("similarity").and_then(|v| v.as_f64()).unwrap_or(0.0);
-                        let name = best.get("filename").and_then(|v| v.as_str()).unwrap_or("unknown");
-                        let ep = best.get("episode").and_then(|v| v.as_u64()).unwrap_or(0);
-                        format!("{name} ep {ep} ({:.0}%)", sim * 100.0)
-                    }
-                    _ => "No trace.moe match found".to_string(),
-                };
-                notify(&app, "ZeroFlow", &title);
-            }
-            Err(e) => {
-                eprintln!("zeroflow: trace.moe failed: {e}");
-                notify(&app, "ZeroFlow", "trace.moe failed");
-            }
-        }
-    });
-    Ok(())
-}
-
-fn notify(app: &tauri::AppHandle, _title: &str, body: &str) {
-    // The Tauri notification plugin on Linux (DBus) is flaky w/ KDE.
-    // Direct DBus call works (tested): gdbus call ... Notify returns ID.
-    use std::process::Command;
-    let title = "ZeroFlow";
-    let app_name = "zeroflow";
-    let icon = "";
-    let urgency = 1; // normal
-    let timeout = 5000; // ms
-    // org.freedesktop.Notifications.Notify signature:
-    // (app_name, replaces_id, icon, summary, body, actions[], hints{}, timeout)
-    // We use hints with "urgency" as byte (1).
-    let hints = "{'urgency': <byte 1>}";
-    let timeout = "5000";
-    let output = Command::new("gdbus")
-        .args([
-            "call", "--session",
-            "--dest", "org.freedesktop.Notifications",
-            "--object-path", "/org/freedesktop/Notifications",
-            "--method", "org.freedesktop.Notifications.Notify",
-            app_name, "0", icon, title, body,
-            "[]", hints, timeout
-        ])
-        .output();
-    match output {
-        Ok(o) if o.status.success() => {
-            eprintln!("zeroflow: notify OK: {}", String::from_utf8_lossy(&o.stdout).trim());
-        }
-        Ok(o) => {
-            eprintln!("zeroflow: notify FAIL: {}", String::from_utf8_lossy(&o.stderr).trim());
-        }
-        Err(e) => eprintln!("zeroflow: notify spawn: {e}"),
-    }
-}
-
-/// Yandex Images — requires session cookies + upload flow. Port of YandexImagesProvider.cs.
+/// Yandex Images - requires session cookies + upload flow. Port of YandexImagesProvider.cs.
 #[tauri::command]
 pub async fn search_yandex(jpeg_base64: String) -> Result<serde_json::Value, String> {
-    // Reverse image search needs a public URL: upload the crop to a free
-    // anonymous host, then open Yandex with that URL.
-    let jpeg = base64::decode(jpeg_base64.trim())
+    use base64::Engine;
+    let jpeg = base64::engine::general_purpose::STANDARD
+        .decode(jpeg_base64.trim())
         .map_err(|e| format!("invalid base64: {e}"))?;
     let url = upload_to_host(&jpeg).await?;
     let search = format!(
@@ -153,10 +74,12 @@ pub async fn search_yandex(jpeg_base64: String) -> Result<serde_json::Value, Str
     Ok(serde_json::json!({ "url": search }))
 }
 
-/// Pinterest — HTTP flow. Port of PinterestProvider.cs.
+/// Pinterest - HTTP flow. Port of PinterestProvider.cs.
 #[tauri::command]
 pub async fn search_pinterest(jpeg_base64: String) -> Result<serde_json::Value, String> {
-    let jpeg = base64::decode(jpeg_base64.trim())
+    use base64::Engine;
+    let jpeg = base64::engine::general_purpose::STANDARD
+        .decode(jpeg_base64.trim())
         .map_err(|e| format!("invalid base64: {e}"))?;
     let url = upload_to_host(&jpeg).await?;
     let search = format!(
@@ -170,7 +93,10 @@ pub async fn search_pinterest(jpeg_base64: String) -> Result<serde_json::Value, 
 /// Uploads bytes to a free anonymous file host and returns the public URL.
 /// 0x0.st: no account, no key, files expire after ~30 days of inactivity.
 async fn upload_to_host(jpeg: &[u8]) -> Result<String, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("upload client: {e}"))?;
     let part = reqwest::multipart::Part::bytes(jpeg.to_vec())
         .mime_str("image/jpeg")
         .map_err(|e| format!("mime: {e}"))?
@@ -194,23 +120,26 @@ async fn upload_to_host(jpeg: &[u8]) -> Result<String, String> {
     Ok(url)
 }
 
-/// Google Lens — the F0 risk item. Phase 2 decides between:
-/// (a) xdg-open with a session URL, (b) built-in WebKitGTK window with the
-/// original's JS injection scripts, (c) CEF if WebKit is blocked.
+/// Google Lens - the F0 risk item. The Linux port opens the returned URL through xdg-open.
 #[tauri::command]
 pub async fn open_lens(jpeg_base64: String) -> Result<serde_json::Value, String> {
+    use base64::Engine;
     eprintln!("zeroflow: open_lens invoked, {} b64 chars", jpeg_base64.len());
-    // Lens expects the raw JPEG bytes, not the base64 string.
-    let jpeg = match base64::decode(jpeg_base64.trim()) {
-        Ok(b) => b,
-        Err(e) => return Err(format!("invalid base64: {e}")),
-    };
+    let jpeg = base64::engine::general_purpose::STANDARD
+        .decode(jpeg_base64.trim())
+        .map_err(|e| format!("invalid base64: {e}"))?;
 
     let client = reqwest::Client::builder()
         .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
+        .timeout(std::time::Duration::from_secs(10))
         .redirect(reqwest::redirect::Policy::none())
         .build()
         .map_err(|e| format!("client build: {e}"))?;
+    // Warmup: fetch lens homepage to prime cookies / TLS (improves 303 rate)
+    let warmup_cookies = match client.get("https://lens.google.com/").send().await {
+        Ok(r) => r.headers().get_all("set-cookie").iter().filter_map(|v| v.to_str().ok()).map(|s| s.split(';').next().unwrap_or("").to_string()).collect::<Vec<_>>().join("; "),
+        Err(_) => String::new(),
+    };
 
     // Same upload as CircleFlow's GoogleLensBrowserOperation: a single
     // encoded_image field with the raw JPEG, posted to v3/upload.
@@ -224,6 +153,7 @@ pub async fn open_lens(jpeg_base64: String) -> Result<serde_json::Value, String>
 
     let resp = client
         .post("https://lens.google.com/v3/upload")
+        .header("Cookie", warmup_cookies.clone())
         .header("Origin", "https://lens.google.com")
         .header("Referer", "https://lens.google.com/")
         .multipart(form)

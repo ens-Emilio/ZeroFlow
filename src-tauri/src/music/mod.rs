@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Port of the SongRec-based Shazam flow from CTS/MusicRecognition.
+// Port of the SongRec-based Shazam flow from reference/CTS/MusicRecognition.
 
 pub mod audio;
 pub mod client;

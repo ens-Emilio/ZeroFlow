@@ -116,6 +116,7 @@ pub async fn crop_selection(polygon: Vec<Point>) -> Result<String, String> {
     Ok(base64::engine::general_purpose::STANDARD.encode(&jpeg))
 }
 
+#[cfg(test)]
 fn point_in_polygon(px: f64, py: f64, polygon: &[Point]) -> bool {
     if polygon.len() < 3 {
         return false;

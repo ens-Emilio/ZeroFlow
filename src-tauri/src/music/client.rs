@@ -21,7 +21,7 @@ pub async fn recognize(sig: &ShazamSignature, location: &ShazamLocation) -> Resu
         "timezone": location.timezone
     });
     // Force HTTP/1.1 (Shazam requires it)
-    let client = reqwest::Client::builder().http1_only().build().map_err(|e| e.to_string())?;
+    let client = reqwest::Client::builder().http1_only().timeout(std::time::Duration::from_secs(8)).connect_timeout(std::time::Duration::from_secs(5)).build().map_err(|e| e.to_string())?;
     let resp = client.post(&url)
         .header("User-Agent", ua)
         .header("Content-Language", "en_US")

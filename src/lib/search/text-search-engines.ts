@@ -1,4 +1,4 @@
-// Text search engines. Port of CTS/Search/GoogleSearchUrl.cs + TextSearchUrlBuilder.cs.
+// Text search engines. Port of reference/CTS/Search/GoogleSearchUrl.cs + TextSearchUrlBuilder.cs.
 // All are pure URL builders — no platform coupling.
 
 export interface TextSearchEngine {

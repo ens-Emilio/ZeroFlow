@@ -36,12 +36,8 @@ export const backend = {
   // and return it as JPEG base64 (no data: prefix).
   cropSelection: (polygon: Point[]) => invoke<string>("crop_selection", { polygon }),
 
-  // Providers
-  searchTraceMoe: (jpegBase64: string) => invoke<unknown>("search_tracemoe", { jpegBase64 }),
-  submitSelection: (jpegBase64: string) => invoke<void>("submit_selection", { jpegBase64 }),
-  searchYandex: (jpegBase64: string) => invoke<unknown>("search_yandex", { jpegBase64 }),
-  openLens: (jpegBase64: string) => invoke<unknown>("open_lens", { jpegBase64 }),
-  searchPinterest: (jpegBase64: string) => invoke<unknown>("search_pinterest", { jpegBase64 }),
+  // Visual search coordinator: one provider flow with bounded retry policy.
+  searchVisual: (providerId: string, jpegBase64: string) => invoke<unknown>("search_visual", { providerId, jpegBase64 }),
 
   // Utilities
   copyImage: (jpegBase64: string) => invoke<boolean>("copy_image", { jpegBase64 }),
@@ -52,12 +48,11 @@ export const backend = {
     invoke<{ words: { text: string; x: number; y: number; width: number; height: number }[]; languageTag: string }>("ocr", { pngBase64, langTag }),
 
   // Music
+  getMusicHistory: () => invoke<unknown[]>("get_music_history"),
+  clearMusicHistory: () => invoke<void>("clear_music_history"),
   startMusicRecognition: () => invoke<{ status: string; track?: unknown; recognition?: unknown; error?: string }>("start_music_recognition"),
   stopMusicRecognition: () => invoke<void>("stop_music_recognition"),
 
-  // Translation
-  translateSelection: (jpegBase64: string, targetLang: string) =>
-    invoke<unknown>("translate_selection", { jpegBase64, targetLang }),
   translateText: (text: string, targetLang: string) =>
     invoke<{ translatedText: string }>("translate_text", { text, targetLang }),
   translateImage: (jpegBase64: string, targetLang: string) =>

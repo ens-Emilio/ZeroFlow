@@ -30,10 +30,11 @@ export interface Settings {
   searchProviderId: string;
   hiddenSearchProviderIds: string[];
   targetLang: string;
+  onboarding_completed: boolean;
 }
 
 export const settings = $state<Settings>({
-  hotkey: "Ctrl+Alt+Space",
+  hotkey: "Ctrl+Alt+Z",
   ignoreHotkeyInFullscreen: true,
   uiSounds: true,
   scanQrCodes: true,
@@ -51,6 +52,7 @@ export const settings = $state<Settings>({
   searchProviderId: "googlelens",
   hiddenSearchProviderIds: ["yandeximages"],
   targetLang: "pt-BR",
+  onboarding_completed: false,
 });
 
 // Mutable overlay state during a drag session.

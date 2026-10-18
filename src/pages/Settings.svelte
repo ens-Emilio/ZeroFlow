@@ -8,23 +8,36 @@
 
   $effect(() => {
     void backend.getSettings().then((data) => {
-      Object.assign(settings, data);
+      const values = data as Record<string, unknown>;
+      Object.assign(settings, values);
+      if (typeof values.textSearchEngineId === "string") {
+        settings.textSearchEngine = values.textSearchEngineId;
+      }
       loaded = true;
     });
   });
 
   function save() {
-    void backend.setSettings({ ...settings }).then(() => {
+    void backend.setSettings({ ...settings, textSearchEngineId: settings.textSearchEngine }).then(() => {
       savedToast = true;
       clearTimeout(saveTimer);
       saveTimer = setTimeout(() => (savedToast = false), 1500);
     });
   }
 
-  const engines = ["google", "bing", "duckduckgo", "kagi", "qwant", "startpage"];
+  const engines = [
+    { id: "matchimagesearch", name: "Match image search" },
+    { id: "google", name: "Google" },
+    { id: "bing", name: "Bing" },
+    { id: "duckduckgo", name: "DuckDuckGo" },
+    { id: "kagi", name: "Kagi" },
+    { id: "qwant", name: "Qwant" },
+    { id: "startpage", name: "Startpage" },
+  ];
+
 </script>
 
-<main class="settings">
+<main class="settings" aria-label="ZeroFlow settings">
   <h1>ZeroFlow Settings</h1>
   {#if !loaded}
     <p class="muted">Loading…</p>
@@ -70,7 +83,7 @@
       <label class="row">
         <span>Text search engine</span>
         <select bind:value={settings.textSearchEngine}>
-          {#each engines as e}<option value={e}>{e}</option>{/each}
+          {#each engines as engine}<option value={engine.id}>{engine.name}</option>{/each}
         </select>
       </label>
     </section>
@@ -83,7 +96,39 @@
           <option value="googlelens">Google Lens</option>
           <option value="yandeximages">Yandex Images</option>
           <option value="tracemoe">trace.moe</option>
+          <option value="pinterest">Pinterest</option>
         </select>
+      </label>
+    </section>
+    <section class="preview-section" aria-live="polite">
+      <h2>Live preview</h2>
+      <div class="preview" class:preview-zoom={settings.overlayZoom}>
+        <div class="preview-toolbar">
+          <span class="preview-label">Selection actions</span>
+          <span class="preview-provider">{settings.searchProviderId}</span>
+        </div>
+        <div class="preview-canvas">
+          <div class="preview-lasso" aria-hidden="true"></div>
+          <span class="preview-hint">Drag to select</span>
+          {#if settings.overlayZoom}<span class="preview-lens">Zoom</span>{/if}
+        </div>
+        <div class="preview-meta">
+          <span>Search: {engines.find((engine) => engine.id === settings.textSearchEngine)?.name ?? settings.textSearchEngine}</span>
+          <span>Minimum: {settings.lassoMinDiagonalPx}px</span>
+          <span>{settings.overlayZoom ? "Zoom enabled" : "Zoom disabled"}</span>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>General</h2>
+      <label class="row">
+        <span>Show onboarding again on next launch</span>
+        <button class="secondary" onclick={() => { settings.onboarding_completed = false; save(); }}>Show onboarding</button>
+      </label>
+      <label class="row">
+        <span>Keep music history</span>
+        <input type="checkbox" bind:checked={settings.saveMusicHistory} onchange={save} />
       </label>
     </section>
 
@@ -129,6 +174,43 @@
   }
   input[type="number"] { width: 6rem; }
   input[type="checkbox"] { transform: scale(1.15); }
+  .preview-section { padding-bottom: 0.5rem; }
+  .preview {
+    overflow: hidden;
+    border: 1px solid #3f3f46;
+    border-radius: 8px;
+    background: #111113;
+  }
+  .preview-toolbar, .preview-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.6rem 0.75rem;
+    color: #a1a1aa;
+    font-size: 0.75rem;
+  }
+  .preview-label { color: #e4e4e7; }
+  .preview-provider { color: #8ab4f8; }
+  .preview-canvas {
+    position: relative;
+    height: 8rem;
+    margin: 0 0.5rem;
+    border: 1px solid #27272a;
+    background: #202124;
+  }
+  .preview-lasso {
+    position: absolute;
+    left: 24%;
+    top: 26%;
+    width: 42%;
+    height: 43%;
+    border: 2px solid #4285f4;
+    border-radius: 48% 52% 44% 56%;
+    background: rgba(66, 133, 244, 0.12);
+  }
+  .preview-hint { position: absolute; right: 0.7rem; bottom: 0.6rem; color: #71717a; font-size: 0.75rem; }
+  .preview-lens { position: absolute; left: 0.7rem; top: 0.6rem; color: #8ab4f8; font-size: 0.7rem; }
+  .preview-meta { justify-content: flex-start; flex-wrap: wrap; border-top: 1px solid #27272a; }
   footer {
     display: flex;
     align-items: center;
@@ -148,4 +230,5 @@
   button:hover { background: #6a4be8; }
   .saved { color: #4ade80; font-size: 0.9rem; }
   .muted { color: #a1a1aa; }
+  :global(:focus-visible) { outline: 2px solid #4285f4; outline-offset: 2px; }
 </style>

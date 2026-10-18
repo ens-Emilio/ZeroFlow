@@ -1,6 +1,5 @@
 // Search engine URL builders. Pure functions; no network here.
 
-use serde_json::Value;
 
 #[tauri::command]
 pub fn open_search(query: String, engine: String) -> Result<(), String> {

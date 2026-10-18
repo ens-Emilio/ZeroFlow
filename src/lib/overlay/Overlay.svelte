@@ -1,5 +1,6 @@
 <script lang="ts">
   import LassoOverlay from "$lib/overlay/LassoOverlay.svelte";
+  import Onboarding from "$lib/overlay/Onboarding.svelte";
 import TextOverlay from "../../pages/TextOverlay.svelte";
   import { overlaySession, settings, toast, showToast } from "$lib/stores/index.svelte";
   import { backend } from "$lib/ipc.ts";
@@ -8,7 +9,11 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
   import { invoke } from "@tauri-apps/api/core";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { onMount } from "svelte";
-  import type { OcrWord } from "$lib/stores/index.svelte";
+  import { playSound } from "$lib/sound.ts";
+ 
+  function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+    return Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error(`${label} timed out (${ms/1000}s)`)), ms))]) as Promise<T>;
+  }
 
   // Overlay is born visible (maximized) by config; we hide it with CSS.
   let isVisible = $state(false);
@@ -18,77 +23,90 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
   let searchProvider = $state(settings.searchProviderId);
   let searchMenuOpen = $state(false);
   let translateMenuOpen = $state(false);
-  let unlistenToggle = null;
+  let translationResult = $state<string | null>(null);
+  let unlistenToggle: UnlistenFn | null = null;
   let selectedOcrWord = $state<string | null>(null);
   let unlistenFrame: UnlistenFn | null = null;
   let unlistenHotkey: UnlistenFn | null = null;
 
-  onMount(async () => {
-    void backend.debugLog("Overlay mounted");
-    // The overlay window is born hidden; WebKitGTK may load this page only
-    // on first show(), after toggle-overlay was already emitted. Recover:
-    // if the window is visible now, adopt the pending frame.
-    try {
-      const win = getCurrentWindow();
-      const visible = await win.isVisible();
-      void backend.debugLog(`recovery: visible=${visible}`);
-      if (visible) {
-        const pending = await invoke<string | null>("get_pending_frame");
-        if (pending) {
-          isVisible = true;
-          overlaySession.screenshotDataUrl = pending;
-        }
-      }
-    } catch (e) {
-      console.error("[zf] recovery failed", e);
-    }
-    // Legacy events (kept for compatibility with crop etc.)
-    unlistenFrame = await listen("zeroflow://overlay-frame", (e: any) => {
-      overlaySession.screenshotDataUrl = e.payload;
-    });
-    unlistenHotkey = await listen("zeroflow://hotkey", (e: any) => {
+  function handleKeydown(e: KeyboardEvent) {
+    if (e.key !== "Escape") return;
+    if (translationResult) {
+      e.stopPropagation();
+      translationResult = null;
+    } else {
       void backend.closeOverlay();
-    });
-    window.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") void backend.closeOverlay();
-    });
-    window.addEventListener("click", (e) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest(".search-dropdown")) {
-        searchMenuOpen = false;
-        translateMenuOpen = false;
-      }
-    });
+    }
+  }
 
-    // Main toggle-overlay listener: the backend shows/hides the real window;
-    // we just track state and grab the frame for the backdrop each time the
-    // overlay is opened.
-    let unlistenToggle: UnlistenFn | null = null;
-    const registerToggleListener = async () => {
-      if (unlistenToggle) unlistenToggle();
-      unlistenToggle = await listen("zeroflow://toggle-overlay", (e: any) => {
-        const dataUrl = e.payload; void backend.debugLog(`toggle-overlay len=${dataUrl?.length ?? 0}`);
-        isVisible = !!dataUrl;
-        if (dataUrl) {
-          // Fresh lasso session: a new frame means a new capture round, even if
-          // this page instance survived (HMR) with stale crop state.
-          mode = null;
-          overlaySession.croppedDataUrl = null;
-          overlaySession.selectionBounds = null;
-          overlaySession.screenshotDataUrl = e.payload;
-        } else {
-          mode = null;
-          overlaySession.croppedDataUrl = null;
-          overlaySession.selectionBounds = null;
+  function handleDocumentClick(e: MouseEvent) {
+    const target = e.target as HTMLElement;
+    if (!target.closest(".search-dropdown")) {
+      searchMenuOpen = false;
+      translateMenuOpen = false;
+    }
+  }
+
+  function handleToggle(e: any) {
+    const dataUrl = e.payload;
+    void backend.debugLog(`toggle-overlay len=${dataUrl?.length ?? 0}`);
+    isVisible = !!dataUrl;
+    mode = null;
+    translationResult = null;
+    overlaySession.croppedDataUrl = null;
+    overlaySession.selectionBounds = null;
+    if (!dataUrl) return;
+    playSound("overlay_opened");
+    overlaySession.screenshotDataUrl = dataUrl;
+    setTimeout(async () => {
+      if (overlaySession.screenshotDataUrl) return;
+      try {
+        const pending = await invoke<string | null>("get_pending_frame");
+        if (pending) overlaySession.screenshotDataUrl = pending;
+      } catch {
+        // The overlay can close while the recovery request is in flight.
+      }
+    }, 300);
+  }
+
+  onMount(() => {
+    void (async () => {
+      void backend.debugLog("Overlay mounted");
+      try {
+        const win = getCurrentWindow();
+        const visible = await win.isVisible();
+        void backend.debugLog(`recovery: visible=${visible}`);
+        if (visible) {
+          const pending = await invoke<string | null>("get_pending_frame");
+          if (pending) {
+            isVisible = true;
+            overlaySession.screenshotDataUrl = pending;
+          }
         }
+      } catch (e) {
+        console.error("[zf] recovery failed", e);
+      }
+      unlistenFrame = await listen("zeroflow://overlay-frame", (e: any) => {
+        overlaySession.screenshotDataUrl = e.payload;
       });
-    };
-    await registerToggleListener();
+      unlistenHotkey = await listen("zeroflow://hotkey", () => {
+        void backend.closeOverlay();
+      });
+      window.addEventListener("keydown", handleKeydown);
+      window.addEventListener("click", handleDocumentClick);
+      const registerToggleListener = async () => {
+        if (unlistenToggle) unlistenToggle();
+        unlistenToggle = await listen("zeroflow://toggle-overlay", handleToggle);
+      };
+      await registerToggleListener();
+    })();
 
     return () => {
       if (unlistenToggle) unlistenToggle();
       if (unlistenFrame) unlistenFrame();
       if (unlistenHotkey) unlistenHotkey();
+      window.removeEventListener("keydown", handleKeydown);
+      window.removeEventListener("click", handleDocumentClick);
     };
   });
   async function onComplete(
@@ -106,16 +124,16 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
     // Show the focused crop with the action toolbar; the user picks what
     // to do with it (search, copy, save) before the overlay goes away.
     overlaySession.croppedDataUrl = `data:image/jpeg;base64,${jpeg}`;
-    mode = "crop";
     void backend.debugLog(`crop done, mode=crop, jpeg=${jpeg.length} b64, visible=${isVisible}`);
   }
 
   async function onOcrText() {
     void backend.debugLog("Text chip clicked");
+    playSound("tap");
     const jpeg = overlaySession.croppedDataUrl?.split(",")[1];
     if (!jpeg) return;
     try {
-      const doc = await backend.ocr(jpeg, settings.ocrLanguageTag);
+      const doc = await withTimeout(backend.ocr(jpeg, settings.ocrLanguageTag), 15_000, "OCR");
       void backend.debugLog(`OCR: ${doc.words.length} words`);
       if (doc.words.length === 0) {
         showToast("No text found");
@@ -132,7 +150,7 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
   }
 
   async function onOcrSearchText() {
-    void backend.debugLog("Search text chip clicked");
+    playSound("tap");
     // If a word was selected via hit-test, search it; otherwise search
     // the whole recognized text.
     const query = selectedOcrWord
@@ -142,7 +160,7 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
       return;
     }
     try {
-      await backend.openSearch(query, settings.textSearchEngine);
+      await withTimeout(backend.openSearch(query, settings.textSearchEngine), 10_000, "Search");
       showToast(`Searching: ${query.slice(0, 60)}`);
     } catch (e) {
       showToast(`Search failed: ${e}`, true);
@@ -150,7 +168,7 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
   }
 
   async function onOcrTranslate() {
-    void backend.debugLog("Translate chip clicked");
+    playSound("tap");
     const jpeg = overlaySession.croppedDataUrl?.split(",")[1];
     if (!jpeg) return;
     const text = (overlaySession.ocrWords ?? []).map((w) => w.text).join(" ").trim();
@@ -159,21 +177,26 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
       return;
     }
     try {
-      const result = await backend.translateText(text, settings.targetLang);
-      const translated = result.translatedText;
+      const result = await withTimeout(backend.translateText(text, settings.targetLang), 15_000, "Translate");
+      const translated = result.translatedText.trim();
+      if (!translated) {
+        showToast("Translation returned no text", true);
+        return;
+      }
+      translationResult = translated;
       void navigator.clipboard.writeText(translated).catch(() => {});
-      showToast(`Translated: ${translated.slice(0, 60)}`);
+      showToast(`Translated and copied: ${translated.slice(0, 60)}`);
     } catch (e) {
       showToast(`Translation failed: ${e}`, true);
     }
   }
 
   async function onOcrTranslateImage() {
-    void backend.debugLog("Translate image chip clicked");
+    playSound("tap");
     const jpeg = overlaySession.croppedDataUrl?.split(",")[1];
     if (!jpeg) return;
     try {
-      const result = await backend.translateImage(jpeg, settings.targetLang);
+      const result = await withTimeout(backend.translateImage(jpeg, settings.targetLang) as Promise<any>, 25_000, "Image translate");
       const translatedB64 = result.translatedPngBase64;
       void backend.debugLog(`translate image ok, ${translatedB64.length} b64 chars`);
       // Replace the crop preview with the translated image.
@@ -184,8 +207,51 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
     }
   }
 
+  let musicBusy = $state(false);
+  let showOnboarding = $state(false);
+  let musicUnlisten: (() => void) | null = null;
+  async function onMusic() {
+    playSound("tap");
+    if (musicBusy) return;
+    musicBusy = true;
+    try {
+      void backend.debugLog("Music chip clicked");
+      showToast("Listening — keep music playing… (12s)");
+      const { listen } = await import("@tauri-apps/api/event");
+      if (musicUnlisten) { try { musicUnlisten(); } catch {} musicUnlisten = null; }
+      let keepAlive: ReturnType<typeof setInterval> | null = null;
+      const unlisten = await listen("zeroflow://music-result", (e: any) => {
+        const r = e.payload as any;
+        void backend.debugLog(`Music result: ${JSON.stringify(r)}`);
+        if (keepAlive) { clearInterval(keepAlive); keepAlive = null; }
+        musicBusy = false;
+        try { unlisten(); musicUnlisten = null; } catch {}
+        if (r.status === "stub_ok") { showToast(`Capture OK rms=${(r.rms as number ?? 0).toFixed(4)} — Shazam next build`); }
+        else if (r.status === "matched") {
+          const rec = r.recognition ?? r.track;
+          showToast(`Matched: ${rec.title} - ${rec.artist}`);
+          if (rec.share_url) void backend.openUrl(rec.share_url).catch(() => {});
+        } else if (r.status === "no_audio") showToast("No audio captured (is music playing?)", true);
+        else if (r.status === "no_match") showToast("No match — try louder / longer", true);
+        else if (r.status === "rate_limited") showToast("Shazam rate-limited, retry later", true);
+        else showToast((r.error as string) ?? "Music error", true);
+      });
+      musicUnlisten = unlisten;
+      // safety timeout: 40s total (12s capture + 3 shazam attempts)
+      setTimeout(() => {
+        if (musicBusy) {
+          if (keepAlive) { clearInterval(keepAlive); keepAlive = null; }
+          showToast("Music timeout — try again", true);
+          musicBusy = false;
+          try { unlisten(); musicUnlisten = null; } catch {}
+        }
+      }, 40_000);
+      await backend.startMusicRecognition();
+    } catch (e) { void backend.debugLog(`Music error: ${String(e)}`); showToast(String(e), true); musicBusy = false; }
+  }
+
   async function onOcrSelect() {
-    void backend.debugLog("Select words chip clicked");
+    playSound("tap");
     if (!overlaySession.ocrWords || overlaySession.ocrWords.length === 0) {
       showToast("No OCR data; run Text first", true);
       return;
@@ -194,7 +260,7 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
   }
 
   function selectProvider(id: string) {
-    void backend.debugLog(`select provider: ${id}`);
+    playSound("tap");
     searchProvider = id;
     settings.searchProviderId = id;
     searchMenuOpen = false;
@@ -206,20 +272,7 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
     if (!jpeg) return;
     void backend.debugLog(`search via ${searchProvider}, jpeg=${jpeg.length} b64`);
     try {
-      switch (searchProvider) {
-        case "tracemoe":
-          await backend.searchTraceMoe(jpeg);
-          break;
-        case "googlelens":
-          await backend.openLens(jpeg);
-          break;
-        case "yandeximages":
-          await backend.searchYandex(jpeg);
-          break;
-        case "pinterest":
-          await backend.searchPinterest(jpeg);
-          break;
-      }
+      await withTimeout(backend.searchVisual(searchProvider, jpeg), 25_000, `Search (${searchProvider})`);
       showToast(`Searching via ${searchProvider}...`);
     } catch (e) {
       showToast(`Search failed: ${e}`, true);
@@ -231,7 +284,7 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
     selectedOcrWord = word;
     void backend.debugLog(`selected OCR word: ${word}`);
     try {
-      await backend.openSearch(word, settings.textSearchEngine);
+      await withTimeout(backend.openSearch(word, settings.textSearchEngine), 10_000, "Search");
       showToast(`Searching: ${word}`);
     } catch (e) {
       showToast(`Search failed: ${e}`, true);
@@ -239,7 +292,7 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
   }
 
   async function onScanQr() {
-    void backend.debugLog("QR chip clicked");
+    playSound("tap");
     const jpeg = overlaySession.croppedDataUrl?.split(",")[1];
     if (!jpeg) {
       void backend.debugLog("QR: no croppedDataUrl");
@@ -247,7 +300,7 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
     }
     void backend.debugLog(`QR: invoking scan_qr, ${jpeg.length} b64 chars`);
     try {
-      const qr = await backend.scanQr(jpeg);
+      const qr = await withTimeout(backend.scanQr(jpeg) as Promise<any>, 10_000, "QR");
       void backend.debugLog(`QR: scan returned ${JSON.stringify(qr)}`);
       if (qr) {
         showToast(`QR: ${qr.text.slice(0, 60)}`);
@@ -267,14 +320,9 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
     }
   }
 
-  async function onSearchTraceMoe() {
-    const jpeg = overlaySession.croppedDataUrl?.split(",")[1];
-    if (!jpeg) return;
-    void backend.submitSelection(jpeg).catch((e) => console.error("[zf] submit failed", e));
-    void backend.closeOverlay();
-  }
 
   function onCopyImage() {
+    playSound("tap");
     const jpeg = overlaySession.croppedDataUrl?.split(",")[1];
     if (!jpeg) return;
     void backend.copyImage(jpeg).catch((e) => console.error("[zf] copy failed", e));
@@ -282,6 +330,7 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
   }
 
   async function onSaveImage() {
+    playSound("tap");
     const jpeg = overlaySession.croppedDataUrl?.split(",")[1];
     if (!jpeg) return;
     try {
@@ -293,10 +342,12 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
   }
 
   function onCloseCrop() {
+    playSound("tap");
     void backend.closeOverlay();
   }
 
   function onCancel() {
+    playSound("tap");
     void backend.closeOverlay();
   }
 </script>
@@ -310,7 +361,16 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
     {#if mode === "crop" && overlaySession.croppedDataUrl}
       <div class="crop-panel">
         <img class="crop-preview" src={overlaySession.croppedDataUrl} alt="Selection" />
-        <div class="crop-toolbar">
+        {#if translationResult}
+          <section class="translation-result" aria-live="polite" aria-label="Translation result">
+            <div class="translation-heading">
+              <h2>Translation</h2>
+              <button class="translation-close" type="button" aria-label="Close translation" onclick={() => (translationResult = null)}>×</button>
+            </div>
+            <p>{translationResult}</p>
+          </section>
+        {/if}
+        <div class="crop-toolbar" role="toolbar" aria-label="Selection actions">
           <div class="search-dropdown">
             <button class="chip primary" onclick={() => (searchMenuOpen = !searchMenuOpen)}>
               Search
@@ -351,6 +411,7 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
     </div>
     <button class="chip" onclick={onOcrSearchText}>Search text</button>
     <button class="chip" onclick={onOcrSelect}>Select words</button>
+          <button class="chip" onclick={onMusic} disabled={musicBusy}>{musicBusy ? "Listening…" : "Music"}</button>
           <button class="chip" onclick={onScanQr}>QR</button>
           <button class="chip" onclick={onCopyImage}>Copy</button>
           <button class="chip" onclick={onSaveImage}>Save</button>
@@ -365,9 +426,16 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
         onSearch={onOcrWordSearch}
       />
     {:else}
-      <LassoOverlay {onComplete} {onCancel} />
+      <LassoOverlay
+        {onComplete}
+        {onCancel}
+        zoomEnabled={settings.overlayZoom}
+        sourceDataUrl={overlaySession.screenshotDataUrl ?? ""}
+        minDiagonalPx={settings.lassoMinDiagonalPx}
+      />
     {/if}
   </div>
+  {#if showOnboarding}<Onboarding onDone={() => { showOnboarding = false; void backend.setSettings({ onboarding_completed: true }); }} />{/if}
 {/if}
 
 {#if toast.visible}
@@ -378,8 +446,6 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
   .overlay-container {
     position: fixed;
     inset: 0;
-    /* Dim over the frozen frame so the capture mode is visibly active. */
-    background: rgba(20, 20, 20, 0.45);
     cursor: crosshair;
   }
   .backdrop {
@@ -398,10 +464,46 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
     inset: 0;
     background: rgba(20, 20, 20, 0.45);
     pointer-events: none;
+    z-index: 1;
+  }
+  .translation-result {
+    width: min(60vw, 720px);
+    max-height: 24vh;
+    overflow: auto;
+    padding: 14px 16px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 10px;
+    background: rgba(30, 30, 32, 0.94);
+    color: #f2f2f4;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  }
+  .translation-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .translation-heading h2 {
+    margin: 0;
+    font-size: 15px;
+  }
+  .translation-result p {
+    margin: 8px 0 0;
+    white-space: pre-wrap;
+    line-height: 1.45;
+  }
+  .translation-close {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
   }
   .crop-panel {
     position: fixed;
     inset: 0;
+    z-index: 20;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -447,17 +549,6 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
     display: inline-flex;
     align-items: center;
     gap: 4px;
-  }
-  .caret-btn {
-    padding: 9px 10px;
-    border-left: none;
-    border-top-left-radius: 0;
-    border-bottom-left-radius: 0;
-    background: #7c5cff;
-    border-color: #7c5cff;
-  }
-  .caret-btn:hover {
-    background: #6a4be8;
   }
   .search-menu {
     position: absolute;
@@ -515,4 +606,5 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
   .toast.error {
     background: rgba(80, 20, 20, 0.92);
   }
+  :global(:focus-visible) { outline: 2px solid #4285f4; outline-offset: 2px; }
 </style>

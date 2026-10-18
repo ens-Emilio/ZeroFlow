@@ -1,4 +1,4 @@
-// Port of CTS/Capture/LassoPathSampler.cs + LassoBoundsCalculator.cs (geometry only).
+// Port of reference/CTS/Capture/LassoPathSampler.cs + LassoBoundsCalculator.cs (geometry only).
 // Samples pointer positions during a lasso drag and produces the closed path
 // plus its bounding box.
 

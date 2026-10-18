@@ -1,4 +1,4 @@
-// Google Image Translation protocol: port of CTS/Translation/GoogleImageTranslationProtocol.cs.
+// Google Image Translation protocol: port of reference/CTS/Translation/GoogleImageTranslationProtocol.cs.
 // Handles signing challenge and request/response format for
 // https://translate.google.com/ (visual image translation).
 
@@ -53,31 +53,6 @@ pub fn read_challenge(html: &str) -> Result<(String, String, String), String> {
     Ok((program, interpreter, state))
 }
 
-/// Decodes the base64 PNG from the translate response.
-/// Expects JSON: [[ "wrb.fr", "WqWDPb", "<base64 png>" ]]
-pub fn read_response(png_b64: &str) -> Result<Vec<u8>, String> {
-    let data: serde_json::Value = serde_json::from_str(png_b64)
-        .map_err(|e| format!("json parse response: {e}"))?;
-    let inner = data
-        .get(0)
-        .and_then(|v| v.as_array())
-        .ok_or_else(|| "response not an array".to_string())?;
-    let png_b64_inner = inner
-        .get(2)
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| "response missing third element".to_string())?;
-    let png_bytes = STANDARD.decode(png_b64_inner)
-        .map_err(|e| format!("png base64 decode: {e}"))?;
-    // Confirm it's a PNG by checking the header
-    if png_b64_inner.len() < 44 || &png_bytes[0..8] != &[137, 80, 78, 71, 13, 10, 26, 10] {
-        return Err(format!(
-            "decoded data is not a PNG (header check failed): {} bytes",
-            png_bytes.len()
-        ));
-    }
-    Ok(png_bytes)
-}
-use std::sync::{Arc, Mutex};
 use tokio::net::TcpListener;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -134,19 +109,13 @@ pub async fn translate_image(
 
     let client = reqwest::Client::builder()
         .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
+        .timeout(std::time::Duration::from_secs(10))
         .build()
         .map_err(|e| format!("client build: {e}"))?;
 
     // 1. Fetch the initialization page and extract the challenge.
     let init_url = format!("https://translate.google.com/?sl=auto&tl={}&op=images", urlencoding::encode(&target_lang));
-    let html = client
-        .get(&init_url)
-        .send()
-        .await
-        .map_err(|e| format!("init page fetch: {e}"))?
-        .text()
-        .await
-        .map_err(|e| format!("init page read: {e}"))?;
+    let html = tokio::time::timeout(std::time::Duration::from_secs(12), async { Ok::<String, String>(client.get(&init_url).send().await.map_err(|e| format!("init page fetch: {e}"))?.text().await.map_err(|e| format!("init page read: {e}"))?) }).await.map_err(|_| "init page timeout (12s)".to_string())??;
     eprintln!("zeroflow: translate init page {} bytes", html.len());
 
     let (program, interpreter, _state) = read_challenge(&html)
@@ -234,13 +203,7 @@ pub async fn translate_image(
 
     // 3. POST to batchexecute with the signed header.
     let endpoint = "https://translate.google.com/_/TranslateWebserverUi/data/batchexecute?rpcids=WqWDPb&rt=c";
-    let resp = client
-        .post(endpoint)
-        .header("X-Goog-BatchExecute-Bgr", token)
-        .form(&[("f.req", request_body.as_str())])
-        .send()
-        .await
-        .map_err(|e| format!("batchexecute: {e}"))?;
+    let resp = tokio::time::timeout(std::time::Duration::from_secs(12), client.post(endpoint).header("X-Goog-BatchExecute-Bgr", token).form(&[("f.req", request_body.as_str())]).send()).await.map_err(|_| "batchexecute timeout (12s)".to_string())?.map_err(|e| format!("batchexecute: {e}"))?;
 
     let status = resp.status();
     eprintln!("zeroflow: translate batchexecute status {}", status);
@@ -296,4 +259,25 @@ fn pick_free_port() -> Result<u16, String> {
         .port();
     drop(listener);
     Ok(port)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn read_challenge_accepts_json_escaped_fixture() {
+        let encoded = "%.@.\"program\",null,null,null,null,[null,null,null,null,null,\"interpreter\"],null,\"state\"]";
+        let html = format!("\"mnsUbf\":{}", serde_json::to_string(encoded).unwrap());
+        let (program, interpreter, state) = read_challenge(&html).expect("fixture challenge");
+        assert_eq!(program, "program");
+        assert_eq!(interpreter, "interpreter");
+        assert_eq!(state, "state");
+    }
+
+    #[test]
+    fn read_challenge_rejects_missing_marker() {
+        let error = read_challenge("<html></html>").expect_err("missing challenge must fail");
+        assert!(error.contains("mnsUbf missing"));
+    }
 }

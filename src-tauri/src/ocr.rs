@@ -1,4 +1,4 @@
-// OCR via Tesseract (leptess). Port of CTS/TextRecognition/*.
+// OCR via Tesseract (leptess). Port of reference/CTS/TextRecognition/*.
 // The original uses Windows.Media.Ocr; here we wrap Tesseract and produce the
 // same OcrDocument shape: words with bounding boxes, so the TS hit-tester
 // (OcrTextHitTester port) works unchanged.
