@@ -27,8 +27,8 @@ pnpm tauri dev
 src-tauri/src/     Rust backend: settings, capture, providers, ocr, qr, shazam, translate, tray
 src/lib/           Svelte frontend: overlay (lasso, zoom), stores, search engines, IPC types
 docs/PLAN.md       Phased port plan and module map
-reference/CTS/     Windows upstream reference - do not build on Linux
-tests/             Windows compatibility tests retained for upstream reference
+reference/CTS/     Windows upstream implementation - do not build on Linux
+tests/              Windows compatibility tests retained as reference; runtime tests live with Rust/Svelte
 
 ## Conventions
 

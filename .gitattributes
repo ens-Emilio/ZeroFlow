@@ -1,6 +1,6 @@
-# The Windows implementation is historical reference only; keep it out of language stats.
-reference/CTS/** linguist-vendored=true
-reference/CTS/** linguist-documentation=true
+# Windows/C# implementation and compatibility tests are retained as historical reference.
+*.cs linguist-vendored=true
+*.cs linguist-documentation=true
 static/sounds/* linguist-vendored=true
 # generated
 src-tauri/gen/** linguist-generated=true

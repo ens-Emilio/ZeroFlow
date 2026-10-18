@@ -125,19 +125,20 @@ Fase 6 (feito) - Referência CTS
 
 Total estimado: 4–5 dias para parity funcional real; 1 comando (`git mv`) para 100% linguist.
 
-## 4) `.gitattributes` — 100% hoje sem mentir sobre paridade
+## 4) `.gitattributes` - 100% hoje sem contar a implementação Windows
 
-Para o gráfico refletir Rust/TS sem apagar história:
+Para o gráfico refletir somente o runtime Rust/TypeScript/Svelte sem apagar história:
 
 ```
-# The historical Windows reference is excluded from language statistics.
-reference/CTS/** linguist-vendored=true
-reference/CTS/** linguist-documentation=true
+# All C# is historical Windows implementation or compatibility coverage.
+*.cs linguist-vendored=true
+*.cs linguist-documentation=true
 static/sounds/* linguist-vendored=true
 ```
 
-The runtime sources are Rust and TypeScript/Svelte; `reference/CTS/` remains available for
-behavior comparison without being counted as project code.
+Isso cobre `reference/CTS/`, `tests/` e o `Program.cs` legado. Os arquivos continuam no
+repositório para comparação e testes Windows, mas não entram nas estatísticas de linguagens.
+O runtime Linux é contado a partir de Rust e TypeScript/Svelte.
 
 ## 5) Checklist de validação pós-migração
 
