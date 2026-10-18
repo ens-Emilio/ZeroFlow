@@ -96,27 +96,31 @@ Fase 0 (feito, validar hoje) — Crash guards
   shazam outer 35s + Lens/Translate 12s + withTimeout frontend
   → grep tem que sair de `music attempt` para `music done` em todos os casos
 
-Fase 1 (0.5 dia) — Limpeza
-  .gitattributes linguist-vendored para CTS/
-  mover CTS/ → reference/CTS/ se quiser 100% no gráfico hoje
-  ou só `linguist-vendored` sem mover (preserva git history)
+Fase 1 (feito) - Limpeza
+  `.gitattributes` exclui `reference/CTS/` do linguist
+  `git mv CTS reference/CTS` preserva o histórico e remove C# do gráfico
 
-Fase 2 (1 dia) — SearchCoordinator
-  search_coordinator.rs + tests (mimic CTS fixtures)
-  Lens warmup já validado (303 → vsrid)
+Fase 2 (feito) - SearchCoordinator
+  `search_coordinator.rs` roteia os quatro provedores e faz no máximo um retry transitório
+  testes unitários cobrem aliases e política de retry
+  Lens warmup e todos os requests têm timeout
 
-Fase 3 (1 dia) — Zoom + Translation overlay visual
-  zoom.ts lupa (Canvas 2D) + TextTranslationVisualFactory equivalente em TextOverlay.svelte
+Fase 3 (feito) - Zoom + Translation overlay visual
+  `zoom.ts` integrado ao canvas do lasso com clamp de borda e DPR
+  tradução textual aparece em painel acessível e mantém cópia para clipboard
 
-Fase 4 (1 dia) — Settings preview + Sounds (se pedir)
-  SettingsPreview opcional, sons opcionais
+Fase 4 (feito) - Settings preview e sons
+  Settings inclui preview vivo do lasso, provedor, engine, zoom e limiar
+  sons opcionais usam os WAV existentes em `static/sounds/` e respeitam `uiSounds`
+  o fluxo legado `translate_selection` foi removido; tradução usa os comandos reais
 
-Fase 5 (0.5 dia) — Packaging final
-  pnpm tauri build → bundle deb+AppImage, teste em VM limpa
-  docs/PACKAGING.md + README linguist badge
+Fase 5 (feito) - Packaging final
+  `tauri.conf.json` gera bundles `deb` e `AppImage`
+  `docs/PACKAGING.md` documenta dependências, build e smoke test
+  README inclui badge de linguagens
 
-Fase 6 (3s) — Apagar CTS
-  git mv CTS reference/CTS  → GitHub linguist vira 100% Rust/TS
+Fase 6 (feito) - Referência CTS
+  `CTS/` foi movido para `reference/CTS/`; o runtime Linux não depende de Win32/COM/STA
 ```
 
 Total estimado: 4–5 dias para parity funcional real; 1 comando (`git mv`) para 100% linguist.
@@ -126,21 +130,25 @@ Total estimado: 4–5 dias para parity funcional real; 1 comando (`git mv`) para
 Para o gráfico refletir Rust/TS sem apagar história:
 
 ```
-# CTS é referência C# read-only, não conta como linguagem do projeto
-CTS/** linguist-vendored=true
-CTS/** linguist-documentation=true
+# The historical Windows reference is excluded from language statistics.
+reference/CTS/** linguist-vendored=true
+reference/CTS/** linguist-documentation=true
 static/sounds/* linguist-vendored=true
 ```
 
-Sem isso o linguist conta C# porque são 31k linhas vs 2k Rust. Com isso vira ~75% Rust + 25% TS no dia seguinte ao commit, 100% quando mover para `reference/`.
+The runtime sources are Rust and TypeScript/Svelte; `reference/CTS/` remains available for
+behavior comparison without being counted as project code.
 
-## 5) Checklist de validação antes de mover CTS
+## 5) Checklist de validação pós-migração
 
-- [ ] `grep -aE 'zeroflow: (music|translate|lens)' /tmp/zf-dev.log` mostra `done`/`status` para todo `invoked`/`attempt` (nenhum hang)
-- [ ] `Ctrl+Alt+Z` → lasso azul Z:30 + crosshair + dims 0.45, sem onboarding bloqueando
-- [ ] `pnpm tauri build` gera `bundle/deb` + `AppImage`
-- [ ] `cargo test` + `pnpm build` verdes
-- [ ] PROGRESS.md Phase 2/3/4 marcados ✅
+- [ ] `grep -aE 'zeroflow: (music|translate|lens)' /tmp/zf-dev.log` mostra `done`/`status` para todo `invoked`/`attempt`; o log histórico disponível termina durante uma tentativa de música e requer áudio real
+- [ ] `Ctrl+Alt+Z` -> lasso azul Z:30 + crosshair + dims 0.45, sem onboarding bloqueando; o compositor desta sessão rejeita automação por virtual keyboard
+- [x] `pnpm tauri build` gera `bundle/deb` + `AppImage` no estado final
+- [x] `cargo check` + `cargo test` + `pnpm check` + `pnpm build` verdes
+- [x] Binário final iniciou por 5 segundos sem crash; Lens, trace.moe e 0x0.st responderam HTTP 200
+- [x] `PROGRESS.md` Phase 2/3/4 marcados
+- [ ] Instalação e smoke test em VM/máquina limpa
+- [ ] Suíte C# executada: compila com .NET 9 e `EnableWindowsTargeting`, mas exige `Microsoft.WindowsDesktop.App 9.0`, indisponível em Linux
 
 ## 6) Riscos conhecidos
 

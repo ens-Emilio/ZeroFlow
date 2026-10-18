@@ -21,7 +21,7 @@
     <OutputType>WinExe</OutputType>
     <StartupObject>CircleToSearch.Program</StartupObject>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <ApplicationIcon>CTS\app.ico</ApplicationIcon>
+    <ApplicationIcon>reference\CTS\app.ico</ApplicationIcon>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <PublishReadyToRun>true</PublishReadyToRun>
   </PropertyGroup>
@@ -46,7 +46,7 @@
     </Content>
     <Page Remove="Assets\Languages\*.xaml" />
     <EmbeddedResource Include="Assets\Languages\en.xaml" LogicalName="CircleToSearch.Languages.en.xaml" />
-    <Content Include="CTS\app.ico" Link="Assets\Images\app.ico">
+    <Content Include="reference\CTS\app.ico" Link="Assets\Images\app.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>

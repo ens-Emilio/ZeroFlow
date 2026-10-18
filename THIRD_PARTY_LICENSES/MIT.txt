@@ -1,7 +1,7 @@
 MIT-licensed components
 =======================
 
-Flow Launcher (adapted source in CTS/Trigger/FullscreenAppDetector.cs)
+Flow Launcher (adapted source in `reference/CTS/Trigger/FullscreenAppDetector.cs`)
 Copyright (c) 2019 Flow-Launcher
 Copyright (c) 2015 Wox
 

@@ -26,18 +26,28 @@
 - [x] Translate image chip (Google in-situ translation → preview replaces crop)
 - [x] Settings window (real UI + tray menu) with JSON persistence
 
-## Phase 2 — Visual Search (Optional Refinements)
-- [ ] Google Lens: improve success rate (cookie warmup, better parsing)
-- [ ] Built-in results window (only if Lens needs WebKit/CEF)
-- [ ] Provider selector in toolbar / settings
+## Phase 2 - Visual Search
+- [x] Google Lens: improve success rate (cookie warmup, bounded HTTP)
+- [x] Visual search coordinator with one transient retry
+- [x] Provider selector in toolbar / settings, including Pinterest
+- [x] Browser fallback through xdg-open and desktop portal
 
-## Phase 3 — Text, Translation, Music
-- [x] Music recognition: parec monitor → 16 kHz mono → Shazam API port (SongRec fingerprint+codec+client, progressive 4/8/12s)
-- [ ] Music history (local JSON)
-- [ ] Onboarding flow
+## Phase 3 - Text, Translation, Music
+- [x] Text search engines (Google/Bing/DDG/Kagi/Qwant/Startpage)
+- [x] Translation: signed Google image protocol with fixture tests
+- [x] Visible OCR translation result with clipboard copy feedback
+- [x] Music recognition: PipeWire monitor -> 16 kHz mono -> Shazam API port
+- [x] Music history and onboarding flow
 
-## Phase 4 — Polish & Ship
-- [ ] Performance & memory profiling (long-run)
-- [ ] Accessibility (focus order, contrast, screen reader labels)
-- [ ] Documentation & packaging (Flathub, Snap, AppImage, .deb, .rpm)
+## Phase 4 - Polish & Ship
+- [x] Accessibility: toolbar role=toolbar, dialog roles, aria-busy, focus, visible focus outlines
+- [x] Performance: lasso zoom is canvas-based; fingerprint off-main-thread with timeout
+- [x] Documentation & packaging for AppImage and Debian bundles
+- [x] Historical CTS reference moved to `reference/CTS/` and excluded from linguist stats
 
+## Validation status
+- [x] `pnpm check`, `pnpm build`, `cargo check` and `cargo test` pass
+- [x] Final AppImage and Debian bundles generated
+- [x] Release binary startup smoke passed; public provider hosts reachable
+- [ ] Manual compositor, real audio and clean-machine validation require a target desktop environment
+- [ ] Windows reference tests require WindowsDesktop runtime on Windows or a Windows VM

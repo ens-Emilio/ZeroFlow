@@ -1,6 +1,6 @@
-# CTS is a read-only C# reference for the Linux port — not project language
-CTS/** linguist-vendored=true
-CTS/** linguist-documentation=true
+# The Windows implementation is historical reference only; keep it out of language stats.
+reference/CTS/** linguist-vendored=true
+reference/CTS/** linguist-documentation=true
 static/sounds/* linguist-vendored=true
 # generated
 src-tauri/gen/** linguist-generated=true

@@ -24,12 +24,11 @@ pnpm tauri dev
 
 ## Layout
 
-```
 src-tauri/src/     Rust backend: settings, capture, providers, ocr, qr, shazam, translate, tray
 src/lib/           Svelte frontend: overlay (lasso, zoom), stores, search engines, IPC types
 docs/PLAN.md       Phased port plan and module map
-CTS/, tests/       Windows upstream, kept as the port reference — do not build on Linux
-```
+reference/CTS/     Windows upstream reference - do not build on Linux
+tests/             Windows compatibility tests retained for upstream reference
 
 ## Conventions
 
@@ -37,7 +36,7 @@ CTS/, tests/       Windows upstream, kept as the port reference — do not build
 - Frontend state is Svelte 5 runes (`$state`, `$derived`); no state libraries.
 - Overlay drawing is Canvas 2D only; DOM/Svelte only for toolbar, toasts and settings chrome.
 - When porting a CircleFlow file, note the source file in a comment at the top:
-  `// Port of CTS/Capture/LassoPathSampler.cs`
+  `// Port of reference/CTS/Capture/LassoPathSampler.cs`
 - User-visible strings live in one place per window; do not scatter literals.
 - Match CircleFlow's behavior first, deviate only with a note in `docs/PLAN.md`.
 

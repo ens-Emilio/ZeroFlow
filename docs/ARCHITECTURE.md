@@ -77,3 +77,21 @@ and location-spoof behavior port from `ShazamRequestThrottle`/`ShazamLocationPro
 - Win32 tray/notification code → StatusNotifierItem + libnotify.
 - WebView2 → default browser or a built-in WebKitGTK window (Phase 2 decision).
 - WPF everything → Svelte (see docs/PLAN.md module map).
+
+## Search coordination
+
+Visual searches enter `src-tauri/src/search_coordinator.rs`. The coordinator selects one
+provider, applies one retry only for transient failures, and leaves browser navigation to
+the existing provider operations. Browser-host classes from the Windows implementation are
+not ported: Wayland and X11 use `xdg-open` through the desktop portal.
+
+## Historical reference
+
+The Windows/WPF implementation is retained under `reference/CTS/` for behavior comparison
+and license provenance. It is vendored and excluded from GitHub language statistics. The
+Linux runtime does not depend on its Win32, COM, WebView2, or STA dispatcher code.
+
+## Packaging
+
+`src-tauri/tauri.conf.json` builds AppImage and Debian packages. See
+`docs/PACKAGING.md` for required host dependencies and validation steps.

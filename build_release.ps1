@@ -100,7 +100,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Restoring the Velopack CLI failed.' }
     # The Start menu shortcut also carries the AUMID that Windows needs to show update toasts.
     dotnet vpk pack --packId CircleFlow --packVersion $version --packDir $appDirectory --mainExe CircleFlow.exe `
-        --packTitle CircleFlow --packAuthors keekys --icon (Join-Path $workspace 'CTS\app.ico') `
+        --packTitle CircleFlow --packAuthors keekys --icon (Join-Path $workspace 'reference\CTS\app.ico') `
         --runtime win-x64 --shortcuts StartMenuRoot --outputDir $releases
     if ($LASTEXITCODE -ne 0) { throw 'Packing the Velopack release failed.' }
     $setupPath = Join-Path $releases 'CircleFlow-win-Setup.exe'

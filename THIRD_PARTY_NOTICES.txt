@@ -15,7 +15,7 @@ SongRec
 -------
 
 The Shazam-compatible fingerprint generator, signature format, and client code under
-CTS/MusicRecognition are adapted and ported to C# from SongRec:
+`reference/CTS/MusicRecognition` are adapted and ported to C# from SongRec:
 https://github.com/marin-m/SongRec
 
 Copyright Marin Moulinier and SongRec contributors.
@@ -27,9 +27,9 @@ Shazam is an Apple service. CircleFlow is not affiliated with or endorsed by App
 
 Flow Launcher
 -------------
-
-The fullscreen window detection in CTS/Trigger/FullscreenAppDetector.cs is adapted and
+The fullscreen window detection in `reference/CTS/Trigger/FullscreenAppDetector.cs` is adapted and
 ported from Flow Launcher:
+
 https://github.com/Flow-Launcher/Flow.Launcher
 
 Copyright (c) 2019 Flow-Launcher. Copyright (c) 2015 Wox.
@@ -39,9 +39,9 @@ MIT.txt.
 
 Material Color Utilities
 ------------------------
-
-The HCT color conversion in CTS/Ui/HctColorConverter.cs is adapted and ported to C# from
+The HCT color conversion in `reference/CTS/Ui/HctColorConverter.cs` is adapted and ported to C# from
 Material Color Utilities:
+
 https://github.com/material-foundation/material-color-utilities
 
 Copyright 2021 Google LLC.
@@ -51,9 +51,8 @@ Apache-2.0.txt.
 
 Material 3 Expressive loading indicator
 ---------------------------------------
-
 The loading-indicator shape assets and animation model in
-CTS/Capture/LoadingIndicatorVisual.cs are adapted from Material Components for Android.
+`reference/CTS/Capture/LoadingIndicatorVisual.cs` are adapted from Material Components for Android.
 
 Copyright 2024 Google LLC.
 Licensed under the Apache License, Version 2.0. The complete license text is distributed

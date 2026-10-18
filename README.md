@@ -13,7 +13,10 @@ Press a shortcut, circle or select any area, and search it with Google Lens, Yan
 
 ## Status
 
-Early development. See [docs/PLAN.md](docs/PLAN.md) for the port plan and progress.
+Functional Linux port. See [docs/PLAN_CONVERSION.md](docs/PLAN_CONVERSION.md) for the
+conversion checklist and [PROGRESS.md](PROGRESS.md) for implementation status.
+
+[![Languages](https://img.shields.io/github/languages/top/ens-Emilio/ZeroFlow)](https://github.com/ens-Emilio/ZeroFlow)
 
 ## Stack
 
