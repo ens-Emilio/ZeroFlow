@@ -10,7 +10,7 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { onMount } from "svelte";
   import { playSound } from "$lib/sound.ts";
- 
+
   function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
     return Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error(`${label} timed out (${ms/1000}s)`)), ms))]) as Promise<T>;
   }
