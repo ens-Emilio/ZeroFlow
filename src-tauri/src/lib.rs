@@ -87,8 +87,9 @@ pub fn run() {
             // global-shortcuts portal, X11 grabs directly.
             use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
             let handle = app.handle().clone();
-            let shortcut = Shortcut::from_str("Ctrl+Alt+Z")
-                .map_err(|e| format!("bad shortcut: {e}"))?;
+            let shortcut_text = settings::load().hotkey_gesture;
+            let shortcut = Shortcut::from_str(&shortcut_text)
+                 .map_err(|e| format!("bad shortcut: {e}"))?;
             let gs = app.global_shortcut();
             // Wayland/KWin: never call show/hide from the handler; the frontend
             // toggles visibility via CSS so no window protocol ops ever run.
@@ -199,7 +200,6 @@ pub fn run() {
             shazam::stop_music_recognition,
             music_history::get_music_history,
             music_history::clear_music_history,
-            shazam::stop_music_recognition,
             translate_text::translate_text,
             google_translate::translate_image,
             tray::show_toast,

@@ -12,39 +12,40 @@ export interface OcrWord {
 }
 
 export interface Settings {
-  hotkey: string;
+  hotkeyGesture: string;
   ignoreHotkeyInFullscreen: boolean;
   uiSounds: boolean;
   scanQrCodes: boolean;
   overlayZoom: boolean;
   maxLongSidePx: number;
   paddingPx: number;
-  hideDelayMs: number;
+  hideDelayMilliseconds: number;
   lassoMinDiagonalPx: number;
   ocrLanguageTag: string;
-  textSearchEngine: string;
+  textSearchEngineId: string;
   textSearchInBuiltInBrowser: boolean;
   browserDataCleanupDays: number;
   saveMusicHistory: boolean;
   musicHistoryRetentionDays: number;
   searchProviderId: string;
   hiddenSearchProviderIds: string[];
+  appLanguageTag: string;
   targetLang: string;
-  onboarding_completed: boolean;
+  onboardingCompleted: boolean;
 }
 
 export const settings = $state<Settings>({
-  hotkey: "Ctrl+Alt+Z",
+  hotkeyGesture: "Ctrl+Alt+Z",
   ignoreHotkeyInFullscreen: true,
   uiSounds: true,
   scanQrCodes: true,
   overlayZoom: true,
   maxLongSidePx: 1600,
   paddingPx: 8,
-  hideDelayMs: 60,
+  hideDelayMilliseconds: 60,
   lassoMinDiagonalPx: 12,
   ocrLanguageTag: "",
-  textSearchEngine: "matchimagesearch",
+  textSearchEngineId: "matchimagesearch",
   textSearchInBuiltInBrowser: false,
   browserDataCleanupDays: 28,
   saveMusicHistory: true,
@@ -52,7 +53,8 @@ export const settings = $state<Settings>({
   searchProviderId: "googlelens",
   hiddenSearchProviderIds: ["yandeximages"],
   targetLang: "pt-BR",
-  onboarding_completed: false,
+  appLanguageTag: "",
+  onboardingCompleted: false,
 });
 
 // Mutable overlay state during a drag session.

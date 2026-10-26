@@ -1,28 +1,32 @@
 <script lang="ts">
   import { settings } from "../lib/stores/index.svelte.ts";
   import { backend } from "../lib/ipc.ts";
+  import Onboarding from "../lib/overlay/Onboarding.svelte";
 
   let loaded = $state(false);
   let savedToast = $state(false);
+  let showOnboarding = $state(false);
   let saveTimer: ReturnType<typeof setTimeout>;
 
   $effect(() => {
     void backend.getSettings().then((data) => {
-      const values = data as Record<string, unknown>;
-      Object.assign(settings, values);
-      if (typeof values.textSearchEngineId === "string") {
-        settings.textSearchEngine = values.textSearchEngineId;
-      }
+      Object.assign(settings, data);
       loaded = true;
     });
   });
 
   function save() {
-    void backend.setSettings({ ...settings, textSearchEngineId: settings.textSearchEngine }).then(() => {
+    void backend.setSettings({ ...settings }).then(() => {
       savedToast = true;
       clearTimeout(saveTimer);
       saveTimer = setTimeout(() => (savedToast = false), 1500);
     });
+  }
+
+  function finishOnboarding() {
+    showOnboarding = false;
+    settings.onboardingCompleted = true;
+    save();
   }
 
   const engines = [
@@ -34,7 +38,6 @@
     { id: "qwant", name: "Qwant" },
     { id: "startpage", name: "Startpage" },
   ];
-
 </script>
 
 <main class="settings" aria-label="ZeroFlow settings">
@@ -46,7 +49,8 @@
       <h2>Hotkey</h2>
       <label class="row">
         <span>Overlay shortcut</span>
-        <input type="text" bind:value={settings.hotkey} placeholder="Ctrl+Alt+Z" />
+        <input type="text" bind:value={settings.hotkeyGesture} placeholder="Ctrl+Alt+Z" aria-describedby="hotkey-restart" />
+        <small id="hotkey-restart" class="muted">Changes take effect after restarting ZeroFlow.</small>
       </label>
       <label class="row checkbox">
         <input type="checkbox" bind:checked={settings.ignoreHotkeyInFullscreen} />
@@ -82,7 +86,7 @@
       </label>
       <label class="row">
         <span>Text search engine</span>
-        <select bind:value={settings.textSearchEngine}>
+        <select bind:value={settings.textSearchEngineId}>
           {#each engines as engine}<option value={engine.id}>{engine.name}</option>{/each}
         </select>
       </label>
@@ -113,7 +117,7 @@
           {#if settings.overlayZoom}<span class="preview-lens">Zoom</span>{/if}
         </div>
         <div class="preview-meta">
-          <span>Search: {engines.find((engine) => engine.id === settings.textSearchEngine)?.name ?? settings.textSearchEngine}</span>
+          <span>Search: {engines.find((engine) => engine.id === settings.textSearchEngineId)?.name ?? settings.textSearchEngineId}</span>
           <span>Minimum: {settings.lassoMinDiagonalPx}px</span>
           <span>{settings.overlayZoom ? "Zoom enabled" : "Zoom disabled"}</span>
         </div>
@@ -123,8 +127,8 @@
     <section>
       <h2>General</h2>
       <label class="row">
-        <span>Show onboarding again on next launch</span>
-        <button class="secondary" onclick={() => { settings.onboarding_completed = false; save(); }}>Show onboarding</button>
+        <span>Show onboarding now</span>
+        <button class="secondary" type="button" onclick={() => { settings.onboardingCompleted = false; save(); showOnboarding = true; }}>Show onboarding</button>
       </label>
       <label class="row">
         <span>Keep music history</span>
@@ -136,6 +140,9 @@
       <button onclick={save}>Save</button>
       {#if savedToast}<span class="saved">Saved</span>{/if}
     </footer>
+  {/if}
+  {#if showOnboarding}
+    <Onboarding onDone={finishOnboarding} />
   {/if}
 </main>
 

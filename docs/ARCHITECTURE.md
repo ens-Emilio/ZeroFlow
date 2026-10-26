@@ -69,7 +69,9 @@ and location-spoof behavior port from `ShazamRequestThrottle`/`ShazamLocationPro
 ## Settings
 
 `$XDG_CONFIG_HOME/zeroflow/settings.json`, camelCase JSON mirroring CircleFlow's
-`AppSettings` record field-for-field, so defaults and validation port 1:1.
+`AppSettings` record field-for-field, so defaults and validation port 1:1. The one
+deliberate divergence is `hotkeyGesture`: CircleFlow's default `Ctrl+Alt+Space` is already
+grabbed by Paseo on the target desktop, so ZeroFlow ships `Ctrl+Alt+Z`.
 
 ## What deliberately does NOT port
 

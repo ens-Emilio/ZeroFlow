@@ -37,7 +37,8 @@ impl Default for Settings {
             hidden_search_provider_ids: vec!["yandeximages".into()],
             text_search_engine_id: "matchimagesearch".into(),
             text_search_in_built_in_browser: false,
-            hotkey_gesture: "Ctrl+Alt+Space".into(),
+            // Upstream default Ctrl+Alt+Space is grabbed by Paseo on the target desktop.
+            hotkey_gesture: "Ctrl+Alt+Z".into(),
             ignore_hotkey_in_fullscreen: true,
             ui_sounds: true,
             scan_qr_codes: true,
@@ -79,4 +80,27 @@ pub fn save(settings: &Settings) -> std::io::Result<()> {
     let text = serde_json::to_string_pretty(settings).map_err(|e| std::io::Error::other(e))?;
     // shortcut: no atomic write yet, swap for tempfile+rename if settings grow
     fs::write(settings_path(), text)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Settings;
+
+    #[test]
+    fn frontend_camel_case_settings_deserialize() {
+        let settings: Settings = serde_json::from_value(serde_json::json!({
+            "searchProviderId": "pinterest",
+            "hiddenSearchProviderIds": ["yandeximages"],
+            "textSearchEngineId": "google",
+            "hotkeyGesture": "Ctrl+Alt+Z",
+            "hideDelayMilliseconds": 150,
+            "onboardingCompleted": true,
+            "targetLang": "en"
+        })).unwrap();
+        assert_eq!(settings.search_provider_id, "pinterest");
+        assert_eq!(settings.hotkey_gesture, "Ctrl+Alt+Z");
+        assert_eq!(settings.hide_delay_milliseconds, 150);
+        assert!(settings.onboarding_completed);
+        assert_eq!(settings.target_lang, "en");
+    }
 }
