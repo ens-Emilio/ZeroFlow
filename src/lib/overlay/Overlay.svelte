@@ -1,6 +1,5 @@
 <script lang="ts">
   import LassoOverlay from "$lib/overlay/LassoOverlay.svelte";
-  import Onboarding from "$lib/overlay/Onboarding.svelte";
 import TextOverlay from "../../pages/TextOverlay.svelte";
   import { overlaySession, settings, toast, showToast } from "$lib/stores/index.svelte";
   import { backend } from "$lib/ipc.ts";
@@ -53,6 +52,8 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
     isVisible = !!dataUrl;
     mode = null;
     translationResult = null;
+    selectedOcrWord = null;
+    overlaySession.ocrWords = [];
     overlaySession.croppedDataUrl = null;
     overlaySession.selectionBounds = null;
     if (!dataUrl) return;
@@ -79,6 +80,11 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
         if (visible) {
           const pending = await invoke<string | null>("get_pending_frame");
           if (pending) {
+            selectedOcrWord = null;
+            overlaySession.ocrWords = [];
+            overlaySession.croppedDataUrl = null;
+            overlaySession.selectionBounds = null;
+            translationResult = null;
             isVisible = true;
             overlaySession.screenshotDataUrl = pending;
           }
@@ -113,6 +119,10 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
     bounds: { x: number; y: number; width: number; height: number },
     path: { x: number; y: number }[]
   ) {
+    selectedOcrWord = null;
+    overlaySession.ocrWords = [];
+    translationResult = null;
+    overlaySession.croppedDataUrl = null;
     overlaySession.selectionBounds = bounds;
     let jpeg: string;
     try {
@@ -124,6 +134,7 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
     // Show the focused crop with the action toolbar; the user picks what
     // to do with it (search, copy, save) before the overlay goes away.
     overlaySession.croppedDataUrl = `data:image/jpeg;base64,${jpeg}`;
+    mode = "crop";
     void backend.debugLog(`crop done, mode=crop, jpeg=${jpeg.length} b64, visible=${isVisible}`);
   }
 
@@ -160,7 +171,7 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
       return;
     }
     try {
-      await withTimeout(backend.openSearch(query, settings.textSearchEngine), 10_000, "Search");
+      await withTimeout(backend.openSearch(query, searchProvider, settings.textSearchEngineId), 10_000, "Search");
       showToast(`Searching: ${query.slice(0, 60)}`);
     } catch (e) {
       showToast(`Search failed: ${e}`, true);
@@ -208,17 +219,30 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
   }
 
   let musicBusy = $state(false);
-  let showOnboarding = $state(false);
   let musicUnlisten: (() => void) | null = null;
+  async function stopMusic() {
+    try {
+      await backend.stopMusicRecognition();
+      showToast("Music listening stopped");
+    } catch (e) {
+      showToast(`Could not stop music listening: ${e}`, true);
+    }
+    musicBusy = false;
+    try { musicUnlisten?.(); } catch {}
+    musicUnlisten = null;
+  }
+
   async function onMusic() {
     playSound("tap");
-    if (musicBusy) return;
+    if (musicBusy) {
+      await stopMusic();
+      return;
+    }
     musicBusy = true;
     try {
       void backend.debugLog("Music chip clicked");
-      showToast("Listening — keep music playing… (12s)");
+      showToast("Listening... keep music playing (12s)");
       const { listen } = await import("@tauri-apps/api/event");
-      if (musicUnlisten) { try { musicUnlisten(); } catch {} musicUnlisten = null; }
       let keepAlive: ReturnType<typeof setInterval> | null = null;
       const unlisten = await listen("zeroflow://music-result", (e: any) => {
         const r = e.payload as any;
@@ -226,28 +250,25 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
         if (keepAlive) { clearInterval(keepAlive); keepAlive = null; }
         musicBusy = false;
         try { unlisten(); musicUnlisten = null; } catch {}
-        if (r.status === "stub_ok") { showToast(`Capture OK rms=${(r.rms as number ?? 0).toFixed(4)} — Shazam next build`); }
+        if (r.status === "stub_ok") showToast(`Capture OK rms=${(r.rms as number ?? 0).toFixed(4)}; Shazam next build`);
         else if (r.status === "matched") {
           const rec = r.recognition ?? r.track;
           showToast(`Matched: ${rec.title} - ${rec.artist}`);
           if (rec.share_url) void backend.openUrl(rec.share_url).catch(() => {});
         } else if (r.status === "no_audio") showToast("No audio captured (is music playing?)", true);
-        else if (r.status === "no_match") showToast("No match — try louder / longer", true);
+        else if (r.status === "no_match") showToast("No match; try louder / longer", true);
         else if (r.status === "rate_limited") showToast("Shazam rate-limited, retry later", true);
         else showToast((r.error as string) ?? "Music error", true);
       });
       musicUnlisten = unlisten;
-      // safety timeout: 40s total (12s capture + 3 shazam attempts)
-      setTimeout(() => {
-        if (musicBusy) {
-          if (keepAlive) { clearInterval(keepAlive); keepAlive = null; }
-          showToast("Music timeout — try again", true);
-          musicBusy = false;
-          try { unlisten(); musicUnlisten = null; } catch {}
-        }
-      }, 40_000);
       await backend.startMusicRecognition();
-    } catch (e) { void backend.debugLog(`Music error: ${String(e)}`); showToast(String(e), true); musicBusy = false; }
+    } catch (e) {
+      void backend.debugLog(`Music error: ${String(e)}`);
+      showToast(String(e), true);
+      musicBusy = false;
+      try { musicUnlisten?.(); } catch {}
+      musicUnlisten = null;
+    }
   }
 
   async function onOcrSelect() {
@@ -284,7 +305,7 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
     selectedOcrWord = word;
     void backend.debugLog(`selected OCR word: ${word}`);
     try {
-      await withTimeout(backend.openSearch(word, settings.textSearchEngine), 10_000, "Search");
+      await withTimeout(backend.openSearch(word, searchProvider, settings.textSearchEngineId), 10_000, "Search");
       showToast(`Searching: ${word}`);
     } catch (e) {
       showToast(`Search failed: ${e}`, true);
@@ -411,7 +432,7 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
     </div>
     <button class="chip" onclick={onOcrSearchText}>Search text</button>
     <button class="chip" onclick={onOcrSelect}>Select words</button>
-          <button class="chip" onclick={onMusic} disabled={musicBusy}>{musicBusy ? "Listening…" : "Music"}</button>
+          <button class="chip" onclick={onMusic}>{musicBusy ? "Stop music" : "Music"}</button>
           <button class="chip" onclick={onScanQr}>QR</button>
           <button class="chip" onclick={onCopyImage}>Copy</button>
           <button class="chip" onclick={onSaveImage}>Save</button>
@@ -435,7 +456,6 @@ import TextOverlay from "../../pages/TextOverlay.svelte";
       />
     {/if}
   </div>
-  {#if showOnboarding}<Onboarding onDone={() => { showOnboarding = false; void backend.setSettings({ onboarding_completed: true }); }} />{/if}
 {/if}
 
 {#if toast.visible}

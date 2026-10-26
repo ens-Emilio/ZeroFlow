@@ -111,7 +111,6 @@ pub async fn crop_selection(polygon: Vec<Point>) -> Result<String, String> {
     eprintln!(
         "zeroflow: crop_selection frame {w}x{h}, bbox {min_x},{min_y}..{max_x},{max_y}"
     );
-    let _ = std::fs::write("/tmp/zeroflow-crop-debug.jpg", &jpeg);
 
     Ok(base64::engine::general_purpose::STANDARD.encode(&jpeg))
 }
