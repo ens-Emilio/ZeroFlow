@@ -1,42 +1,75 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { listen } from "@tauri-apps/api/event";
   import { backend } from "../lib/ipc.ts";
   import { musicState, showToast } from "../lib/stores/index.svelte.ts";
 
+  type MusicResult = { status: string; track?: any; recognition?: any; error?: string };
   let busy = $state(false);
-  let result = $state<{ status: string; track?: any; recognition?: any; error?: string } | null>(null);
+  let stopping = $state(false);
+  let result = $state<MusicResult | null>(null);
   let history = $state<any[]>([]);
-  onMount(async () => {
-    try { history = (await backend.getMusicHistory()) as any[]; } catch {}
+
+  onMount(() => {
+    let unlisten: (() => void) | null = null;
+    void (async () => {
+      try { history = (await backend.getMusicHistory()) as any[]; } catch {}
+      unlisten = await listen<MusicResult>("zeroflow://music-result", (event) => {
+        result = event.payload;
+        musicState.lastResult = event.payload;
+        busy = false;
+        stopping = false;
+        if (event.payload.status === "matched") {
+          showToast(`Matched: ${event.payload.track?.title ?? "?"} - ${event.payload.track?.artist ?? "?"}`);
+          void refreshHistory();
+        } else if (event.payload.status === "no_match") showToast("No match; try with louder audio", true);
+        else if (event.payload.status === "rate_limited") showToast("Shazam rate-limited, try again later", true);
+        else if (event.payload.status === "cancelled") showToast("Music listening stopped");
+        else if (event.payload.status === "service_error") showToast(`Service error: ${event.payload.error ?? ""}`, true);
+      });
+    })();
+    return () => { try { unlisten?.(); } catch {} };
   });
+
   async function clearHistory() {
+    if (!window.confirm("Clear all saved music history? This cannot be undone.")) return;
     try { await backend.clearMusicHistory(); history = []; showToast("History cleared"); } catch (e) { showToast(String(e), true); }
   }
+
   async function refreshHistory() { try { history = (await backend.getMusicHistory()) as any[]; } catch {} }
 
   async function recognize() {
+    if (busy) return;
     busy = true;
     result = null;
     try {
-      const r = await backend.startMusicRecognition();
-      result = r as any;
-      musicState.lastResult = r;
-      if (r.status === "matched") { showToast(`Matched: ${(r as any).track?.title ?? "?"} - ${(r as any).track?.artist ?? "?"}`); void refreshHistory(); }
-      else if (r.status === "no_match") showToast("No match — try with louder audio", true);
-      else if (r.status === "rate_limited") showToast("Shazam rate-limited, try again later", true);
-      else if (r.status === "service_error") showToast(`Service error: ${(r as any).error ?? ""}`, true);
-    } catch (e) { result = { status: "service_error", error: String(e) }; showToast(String(e), true); }
-    finally { busy = false; }
+      await backend.startMusicRecognition();
+      showToast("Listening... keep music playing (12s)");
+    } catch (e) {
+      result = { status: "service_error", error: String(e) };
+      showToast(String(e), true);
+      busy = false;
+    }
   }
-  async function stop() { try { await backend.stopMusicRecognition(); } catch {} busy = false; }
-</script>
 
+  async function stop() {
+    if (!busy || stopping) return;
+    stopping = true;
+    try {
+      await backend.stopMusicRecognition();
+    } catch (e) {
+      stopping = false;
+      showToast(`Could not stop music listening: ${e}`, true);
+    }
+  }
+
+</script>
 <main class="music" aria-label="Music recognition">
   <h1>ZeroFlow — Music</h1>
   <p class="hint">Plays from speakers/monitor. Captures what is currently audible.</p>
   <div class="actions">
     <button onclick={recognize} disabled={busy} aria-busy={busy}>{busy ? "Listening…" : "Identify music"}</button>
-    {#if busy}<button class="secondary" onclick={stop}>Stop</button>{/if}
+    {#if busy}<button class="secondary" onclick={stop} disabled={stopping}>{stopping ? "Stopping…" : "Stop"}</button>{/if}
   </div>
   {#if result}
     <section class="result">

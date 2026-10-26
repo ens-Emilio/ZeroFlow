@@ -47,7 +47,9 @@ fn read_pcm(child: &mut Child, max_bytes: usize) -> Result<Vec<i16>, String> {
 
 /// Capture `duration_secs` seconds of audio from the default monitor,
 /// return mono f32 samples at 16 kHz (downsampled from 48 kHz stereo s16le).
-pub fn capture_monitor(duration_secs: u32) -> Result<Vec<f32>, String> {
+pub fn capture_monitor(duration_secs: u32, cancelled: &std::sync::atomic::AtomicBool) -> Result<Vec<f32>, String> {
+    use std::sync::atomic::Ordering;
+    if cancelled.load(Ordering::Relaxed) { return Err("music recognition cancelled".into()); }
     let max_bytes = duration_secs as usize * 48000 * 2 * 2; // 48k * 2ch * 2bytes
     let mut child = spawn_parec(duration_secs)?;
     // Read in a thread and kill parec after duration_secs so pipe closes.
@@ -69,7 +71,20 @@ pub fn capture_monitor(duration_secs: u32) -> Result<Vec<f32>, String> {
         }
         let _ = tx.send(out);
     });
-    std::thread::sleep(std::time::Duration::from_secs(duration_secs as u64));
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(duration_secs as u64);
+    while std::time::Instant::now() < deadline {
+         if cancelled.load(Ordering::Relaxed) {
+             let _ = child.kill();
+             let _ = child.wait();
+             return Err("music recognition cancelled".into());
+         }
+         std::thread::sleep(std::time::Duration::from_millis(100));
+     }
+    if cancelled.load(Ordering::Relaxed) {
+        let _ = child.kill();
+        let _ = child.wait();
+        return Err("music recognition cancelled".into());
+    }
     let _ = child.kill();
     let _ = child.wait();
     let out = rx.recv_timeout(std::time::Duration::from_secs(2)).unwrap_or_default();
@@ -95,6 +110,21 @@ fn stereo_s16_48k_to_mono_f32_16k(src: &[i16]) -> Vec<f32> {
         let c = mono[i * 3 + 2];
         (a + b + c) / 3.0
     }).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::capture_monitor;
+    use std::sync::atomic::AtomicBool;
+
+    #[test]
+    fn capture_stops_before_spawning_when_cancelled() {
+        let cancelled = AtomicBool::new(true);
+        assert_eq!(
+            capture_monitor(12, &cancelled).unwrap_err(),
+            "music recognition cancelled"
+        );
+    }
 }
 
 pub fn rms(samples: &[f32]) -> f64 {
